@@ -22,6 +22,7 @@ At a peek AutoFixtures has the following features
 ## Future
 The following features are not ready, but work is in progress
 <ul>
+<li> build and configure a single class
 <li> Handling of multiple mocks of the same type - currently only one mock object of each class can be active.
 <li> Easy setup of multiple mock objects at once.
 </ul>

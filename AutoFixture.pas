@@ -55,7 +55,8 @@ public
   function NewInterfaceList<T: IInterface>(AReferenceDepth: Integer): TList<T>; overload;
 
   function getValue(aPropertyName: String; aType: TRttiType): TValue; overload;
-  function getValue<T>: T; overload;
+//  function getValue<T>: T; overload;
+  function getValue<T>(APropertyName: String = ''): T; overload;
   procedure Inject<T>(aValue: T); overload;
   procedure Inject<T>(aDelegate: TInjectNameDelegate<T>); overload;
   procedure Inject<T>(aPropertyName: String; aDelegate: TInjectDelegate<T>); overload;
@@ -375,12 +376,12 @@ begin
   end;
 end;
 
-function TAutoFixture.getValue<T>(): T;
+function TAutoFixture.getValue<T>(APropertyName: String): T;
 var ctx: TRttiContext;
   vValue: TValue;
 begin
   ctx := TRttiContext.Create;
-  vValue := getValue('', ctx.getType(TypeInfo(T)));
+  vValue := getValue(APropertyName, ctx.getType(TypeInfo(T)));
 
   if vValue.isEmpty then begin
     Result := Default(T);
@@ -389,6 +390,21 @@ begin
     Result := vValue.AsType<T>;
   end;
 end;
+
+//function TAutoFixture.getValue<T>(): T;
+//var ctx: TRttiContext;
+//  vValue: TValue;
+//begin
+//  ctx := TRttiContext.Create;
+//  vValue := getValue('', ctx.getType(TypeInfo(T)));
+//
+//  if vValue.isEmpty then begin
+//    Result := Default(T);
+//  end
+//  else begin
+//    Result := vValue.AsType<T>;
+//  end;
+//end;
 
 function TAutoFixture.NewInterface<T>: T;
 begin

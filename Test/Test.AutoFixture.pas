@@ -33,6 +33,9 @@ public
 
     [Test]
     procedure TestList;
+
+    [Test]
+    procedure TestValueString;
 end;
 
 
@@ -115,6 +118,16 @@ begin
   // Assert
   Assert.IsTrue(vResult is TTestSubClass);
   Assert.AreNotEqual('', vResult.FSubProperty, 'Properties must have been initialized');
+end;
+
+procedure TAutofixtureTest.TestValueString;
+var s: String;
+begin
+  // Act
+  s := UUT.getValue<String>('Name');
+
+  // Assert
+  Assert.AreNotEqual('', s, 'String generation');
 end;
 
 end.

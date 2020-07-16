@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{C1C62838-B7F8-417C-A5B6-894985184791}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="AutoFixtureProject.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Examples\AutoFixtureExamples.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="AutoFixtureProject">
+        <MSBuild Projects="AutoFixtureProject.dproj"/>
+    </Target>
+    <Target Name="AutoFixtureProject:Clean">
+        <MSBuild Projects="AutoFixtureProject.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="AutoFixtureProject:Make">
+        <MSBuild Projects="AutoFixtureProject.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="AutoFixtureExamples">
+        <MSBuild Projects="Examples\AutoFixtureExamples.dproj"/>
+    </Target>
+    <Target Name="AutoFixtureExamples:Clean">
+        <MSBuild Projects="Examples\AutoFixtureExamples.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="AutoFixtureExamples:Make">
+        <MSBuild Projects="Examples\AutoFixtureExamples.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="AutoFixtureProject;AutoFixtureExamples"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="AutoFixtureProject:Clean;AutoFixtureExamples:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="AutoFixtureProject:Make;AutoFixtureExamples:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

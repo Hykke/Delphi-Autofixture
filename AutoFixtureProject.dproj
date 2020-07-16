@@ -36,6 +36,9 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
         <DCC_Define>TESTINSIGHT;$(DCC_Define)</DCC_Define>
+        <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <DCC_RunTimeTypeInfo>true</DCC_RunTimeTypeInfo>
+        <VerInfo_Locale>1030</VerInfo_Locale>
         <SanitizedProjectName>AutoFixtureProject</SanitizedProjectName>
         <DCC_UnitSearchPath>$(DUnitX);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <Icns_MainIcns>$(BDS)\bin\delphi_PROJECTICNS.icns</Icns_MainIcns>
@@ -65,6 +68,91 @@
         <DCC_RemoteDebug>true</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
+        <DCC_Inlining>off</DCC_Inlining>
+        <DCC_DebugDCUs>false</DCC_DebugDCUs>
+        <DCC_MapFile>3</DCC_MapFile>
+        <DCC_LegacyIFEND>true</DCC_LegacyIFEND>
+        <DCC_OutputDependencies>true</DCC_OutputDependencies>
+        <DCC_OutputXMLDocumentation>true</DCC_OutputXMLDocumentation>
+        <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
+        <DCC_RangeChecking>true</DCC_RangeChecking>
+        <DCC_UNSAFE_CODE>true</DCC_UNSAFE_CODE>
+        <DCC_COMPARING_SIGNED_UNSIGNED>error</DCC_COMPARING_SIGNED_UNSIGNED>
+        <DCC_HPPEMIT_IGNORED>error</DCC_HPPEMIT_IGNORED>
+        <DCC_STRING_CONST_TRUNCED>error</DCC_STRING_CONST_TRUNCED>
+        <DCC_USE_BEFORE_DEF>error</DCC_USE_BEFORE_DEF>
+        <DCC_NO_CFG_FILE_FOUND>error</DCC_NO_CFG_FILE_FOUND>
+        <DCC_DUPLICATES_IGNORED>error</DCC_DUPLICATES_IGNORED>
+        <DCC_RLINK_WARNING>error</DCC_RLINK_WARNING>
+        <DCC_XML_INVALID_NAME_START>error</DCC_XML_INVALID_NAME_START>
+        <DCC_UNSUPPORTED_CONSTRUCT>error</DCC_UNSUPPORTED_CONSTRUCT>
+        <DCC_FOR_VARIABLE>error</DCC_FOR_VARIABLE>
+        <DCC_UNIT_PLATFORM>error</DCC_UNIT_PLATFORM>
+        <DCC_UNIT_LIBRARY>error</DCC_UNIT_LIBRARY>
+        <DCC_COMPARISON_TRUE>error</DCC_COMPARISON_TRUE>
+        <DCC_TYPEINFO_IMPLICITLY_ADDED>error</DCC_TYPEINFO_IMPLICITLY_ADDED>
+        <DCC_FOR_LOOP_VAR_UNDEF>error</DCC_FOR_LOOP_VAR_UNDEF>
+        <DCC_HRESULT_COMPAT>error</DCC_HRESULT_COMPAT>
+        <DCC_XML_CREF_NO_RESOLVE>error</DCC_XML_CREF_NO_RESOLVE>
+        <DCC_WIDECHAR_REDUCED>error</DCC_WIDECHAR_REDUCED>
+        <DCC_PRIVATE_PROPACCESSOR>error</DCC_PRIVATE_PROPACCESSOR>
+        <DCC_UNIT_EXPERIMENTAL>error</DCC_UNIT_EXPERIMENTAL>
+        <DCC_TYPED_CONST_VARPAR>error</DCC_TYPED_CONST_VARPAR>
+        <DCC_CVT_NARROWING_STRING_LOST>error</DCC_CVT_NARROWING_STRING_LOST>
+        <DCC_CVT_WIDENING_STRING_LOST>error</DCC_CVT_WIDENING_STRING_LOST>
+        <DCC_IMAGEBASE_MULTIPLE>error</DCC_IMAGEBASE_MULTIPLE>
+        <DCC_INVALID_DIRECTIVE>error</DCC_INVALID_DIRECTIVE>
+        <DCC_HIDDEN_VIRTUAL>error</DCC_HIDDEN_VIRTUAL>
+        <DCC_OPTION_TRUNCATED>error</DCC_OPTION_TRUNCATED>
+        <DCC_BAD_GLOBAL_SYMBOL>error</DCC_BAD_GLOBAL_SYMBOL>
+        <DCC_UNICODE_TO_LOCALE>error</DCC_UNICODE_TO_LOCALE>
+        <DCC_XML_EXPECTED_CHARACTER>error</DCC_XML_EXPECTED_CHARACTER>
+        <DCC_UNIT_NAME_MISMATCH>error</DCC_UNIT_NAME_MISMATCH>
+        <DCC_COMBINING_SIGNED_UNSIGNED>error</DCC_COMBINING_SIGNED_UNSIGNED>
+        <DCC_IMPLICIT_STRING_CAST_LOSS>error</DCC_IMPLICIT_STRING_CAST_LOSS>
+        <DCC_PACKAGED_THREADVAR>error</DCC_PACKAGED_THREADVAR>
+        <DCC_UNSAFE_VOID_POINTER>error</DCC_UNSAFE_VOID_POINTER>
+        <DCC_FILE_OPEN_UNITSRC>error</DCC_FILE_OPEN_UNITSRC>
+        <DCC_FILE_OPEN>error</DCC_FILE_OPEN>
+        <DCC_MESSAGE_DIRECTIVE>error</DCC_MESSAGE_DIRECTIVE>
+        <DCC_XML_NO_MATCHING_PARM>error</DCC_XML_NO_MATCHING_PARM>
+        <DCC_CONSTRUCTING_ABSTRACT>error</DCC_CONSTRUCTING_ABSTRACT>
+        <DCC_SYMBOL_EXPERIMENTAL>error</DCC_SYMBOL_EXPERIMENTAL>
+        <DCC_ZERO_NIL_COMPAT>error</DCC_ZERO_NIL_COMPAT>
+        <DCC_LOCAL_PINVOKE>error</DCC_LOCAL_PINVOKE>
+        <DCC_FOR_LOOP_VAR_VARPAR>error</DCC_FOR_LOOP_VAR_VARPAR>
+        <DCC_PACKAGE_NO_LINK>error</DCC_PACKAGE_NO_LINK>
+        <DCC_NON_PORTABLE_TYPECAST>error</DCC_NON_PORTABLE_TYPECAST>
+        <DCC_IMPLICIT_IMPORT>error</DCC_IMPLICIT_IMPORT>
+        <DCC_CVT_ACHAR_TO_WCHAR>error</DCC_CVT_ACHAR_TO_WCHAR>
+        <DCC_XML_UNKNOWN_ENTITY>error</DCC_XML_UNKNOWN_ENTITY>
+        <DCC_CVT_WCHAR_TO_ACHAR>error</DCC_CVT_WCHAR_TO_ACHAR>
+        <DCC_CASE_LABEL_RANGE>error</DCC_CASE_LABEL_RANGE>
+        <DCC_IMPLICIT_VARIANTS>error</DCC_IMPLICIT_VARIANTS>
+        <DCC_UNIT_INIT_SEQ>error</DCC_UNIT_INIT_SEQ>
+        <DCC_COMPARISON_FALSE>error</DCC_COMPARISON_FALSE>
+        <DCC_IMPLICIT_STRING_CAST>error</DCC_IMPLICIT_STRING_CAST>
+        <DCC_XML_INVALID_NAME>error</DCC_XML_INVALID_NAME>
+        <DCC_HIDING_MEMBER>error</DCC_HIDING_MEMBER>
+        <DCC_NO_RETVAL>error</DCC_NO_RETVAL>
+        <DCC_XML_NO_PARM>error</DCC_XML_NO_PARM>
+        <DCC_BOUNDS_ERROR>error</DCC_BOUNDS_ERROR>
+        <DCC_GARBAGE>error</DCC_GARBAGE>
+        <DCC_UNIT_DEPRECATED>error</DCC_UNIT_DEPRECATED>
+        <DCC_LOCALE_TO_UNICODE>error</DCC_LOCALE_TO_UNICODE>
+        <DCC_SYMBOL_PLATFORM>error</DCC_SYMBOL_PLATFORM>
+        <DCC_SUSPICIOUS_TYPECAST>error</DCC_SUSPICIOUS_TYPECAST>
+        <DCC_ASG_TO_TYPED_CONST>error</DCC_ASG_TO_TYPED_CONST>
+        <DCC_SYMBOL_DEPRECATED>error</DCC_SYMBOL_DEPRECATED>
+        <DCC_SYMBOL_LIBRARY>error</DCC_SYMBOL_LIBRARY>
+        <DCC_XML_WHITESPACE_NOT_ALLOWED>error</DCC_XML_WHITESPACE_NOT_ALLOWED>
+        <DCC_IMMUTABLE_STRINGS>true</DCC_IMMUTABLE_STRINGS>
+        <DCC_EXPLICIT_STRING_CAST_LOSS>error</DCC_EXPLICIT_STRING_CAST_LOSS>
+        <DCC_UNSAFE_CAST>true</DCC_UNSAFE_CAST>
+        <DCC_UNSAFE_TYPE>error</DCC_UNSAFE_TYPE>
+        <DCC_EXPLICIT_STRING_CAST>true</DCC_EXPLICIT_STRING_CAST>
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <Manifest_File>(None)</Manifest_File>
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
@@ -84,6 +172,14 @@
         <DCCReference Include="EncapsulatedRecord.pas"/>
         <DCCReference Include="AutoFixture.IdGenerator.pas"/>
         <DCCReference Include="Test\Test.AutoFixture.pas"/>
+        <DCCReference Include="Examples\AutoFixtureExample1.pas"/>
+        <DCCReference Include="Examples\ClassesToTest.pas"/>
+        <DCCReference Include="Examples\AutofixtureExample2.pas"/>
+        <DCCReference Include="AutoFixtureSetup.pas"/>
+        <DCCReference Include="Test\Test.AutoFixture.Types.pas"/>
+        <DCCReference Include="Test\Test.AutoFixture.Configure.pas"/>
+        <DCCReference Include="Test\Test.AutoFixture.Build.pas"/>
+        <DCCReference Include="Test\Test.Autofixture.exceptions.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -104,6 +200,11 @@
                 <Source>
                     <Source Name="MainSource">AutoFixtureProject.dpr</Source>
                 </Source>
+                <Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k240.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp240.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="C:\Program Files (x86)\D10\DevExpress VCL\Library\RS24\dxSpreadSheetInplaceRichEditRS24.bpl">ExpressSpreadSheet In-place RichEdit Support by Developer Express Inc.</Excluded_Packages>
+                </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="3">
                 <DeployFile LocalName="$(BDS)\Redist\iossimulator\libPCRE.dylib" Class="DependencyModule">

@@ -4,7 +4,8 @@ interface
 
 uses AutoFixture,
   DUnitX.TestFramework,
-  Generics.Collections;
+  Generics.Collections,
+  Test.AutoFixture.Types;
 
 type
 
@@ -34,21 +35,7 @@ public
     procedure TestList;
 end;
 
-ITestInterfaceType = interface
 
-end;
-
-TTestAbstractClass = class(TInterfacedObject, ITestInterfaceType)
-public
-  FProperty: String;
-
-end;
-
-TTestSubClass = class(TTestAbstractClass, ITestInterfaceType)
-public
-  FSubProperty: String;
-  FList: TList<Integer>;
-end;
 
 implementation
 
@@ -87,10 +74,7 @@ end;
 
 procedure TAutofixtureTest.TestInterfaceBinding;
 var
-  vObject: TObject;
   vIObj: ITestInterfaceType;
-  vObj: IInterface;
-  vIntfObj: TinterfacedObject;
 begin
   // Arrange
   UUT.RegisterType<ITestInterfaceType, TTestAbstractClass>;
@@ -107,10 +91,7 @@ end;
 
 procedure TAutofixtureTest.TestList;
 var
-  vObject: TObject;
   vIObj: ITestInterfaceType;
-  vObj: IInterface;
-  vIntfObj: TinterfacedObject;
 begin
   // Arrange
   UUT.RegisterType<ITestInterfaceType, TTestAbstractClass>;

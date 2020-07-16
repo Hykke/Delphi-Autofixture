@@ -17,7 +17,15 @@ uses
   Test.RandomGeneratorTest in 'Test\Test.RandomGeneratorTest.pas',
   EncapsulatedRecord in 'EncapsulatedRecord.pas',
   AutoFixture.IdGenerator in 'AutoFixture.IdGenerator.pas',
-  Test.Autofixture in 'Test\Test.AutoFixture.pas';
+  Test.AutoFixture in 'Test\Test.AutoFixture.pas',
+  AutoFixtureExample1 in 'Examples\AutoFixtureExample1.pas',
+  ClassesToTest in 'Examples\ClassesToTest.pas',
+  AutofixtureExample2 in 'Examples\AutofixtureExample2.pas',
+  AutoFixtureSetup in 'AutoFixtureSetup.pas',
+  Test.AutoFixture.Types in 'Test\Test.AutoFixture.Types.pas',
+  Test.AutoFixture.Configure in 'Test\Test.AutoFixture.Configure.pas',
+  Test.AutoFixture.Build in 'Test\Test.AutoFixture.Build.pas',
+  Test.Autofixture.exceptions in 'Test\Test.Autofixture.exceptions.pas';
 
 var
   runner : ITestRunner;

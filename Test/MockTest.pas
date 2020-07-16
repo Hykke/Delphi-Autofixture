@@ -55,7 +55,7 @@ begin
 //  FMockDao.Setup.WillReturn(True).When.saveObjectToDb('TEST');
 //  vFixture.Inject(FMockDao.Instance);
 
-  vFixture.Mock<TDaoClass>.Setup.WillReturn(True).When.saveObjectToDb('TEST');
+  vFixture.DMock<TDaoClass>.Setup.WillReturn(True).When.saveObjectToDb('TEST');
 
   UUT := vFixture.New<TControllerClass>;
   //vUUTMock := TMock<TControllerClass>.Create;

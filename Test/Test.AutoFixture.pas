@@ -36,6 +36,12 @@ public
 
     [Test]
     procedure TestValueString;
+
+    [Test]
+    procedure TestInjectString;
+
+    [Test]
+    procedure TestInjectDelegate;
 end;
 
 
@@ -73,6 +79,46 @@ begin
   // Assert
   Assert.IsTrue(vResult is TTestSubClass);
   Assert.AreNotEqual('', vResult.FSubProperty, 'Properties must have been initialized');
+end;
+
+procedure TAutofixtureTest.TestInjectString;
+var
+  s: String;
+begin
+  // Arrange
+  UUT.Inject<String>('Ploeh');
+
+  // Act
+  s := UUT.NewValue<String>;
+
+  // Assert
+  Assert.AreEqual('Ploeh', s, 'String inject');
+end;
+
+procedure TAutofixtureTest.TestInjectDelegate;
+var
+  str1, str2: String;
+begin
+  // Arrange
+  UUT.Inject<String>(
+    function (APropertyName: String): String
+    begin
+      if APropertyName.ToUpper.Contains('NAME') then begin
+        Result := 'Mark Seemann';
+      end
+      else begin
+        Result := 'Unknown';
+      end;
+    end
+  );
+
+  // Act
+  str1 := UUT.NewValue<String>('AnythingElse');
+  str2 := UUT.NewValue<String>('MyName');
+
+  // Assert
+  Assert.AreNotEqual('Mark Seemann', str1, 'String delegate');
+  Assert.AreEqual('Mark Seemann', str2, 'String delegate');
 end;
 
 procedure TAutofixtureTest.TestInterfaceBinding;
@@ -124,7 +170,7 @@ procedure TAutofixtureTest.TestValueString;
 var s: String;
 begin
   // Act
-  s := UUT.getValue<String>('Name');
+  s := UUT.NewValue<String>('Name');
 
   // Assert
   Assert.AreNotEqual('', s, 'String generation');

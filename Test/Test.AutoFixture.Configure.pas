@@ -199,8 +199,8 @@ var
   vRec: TRecord;
 begin
   // Arrange
-  vRec.FString := UUT.GetValue<string>;
-  vRec.FInt := UUT.GetValue<integer>;
+  vRec.FString := UUT.NewValue<string>;
+  vRec.FInt := UUT.NewValue<integer>;
 
   UUT.Configure<TTestSubClass>.WithValue<TRecord>(
     function (ATestSubClass: TTestSubClass): TRecord

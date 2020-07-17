@@ -53,10 +53,9 @@ public
   function NewList<T: Class>(AReferenceDepth: Integer; AOwnsObjects: Boolean = True): TObjectList<T>; overload;
   function NewInterfaceList<T: IInterface>: TList<T>; overload;
   function NewInterfaceList<T: IInterface>(AReferenceDepth: Integer): TList<T>; overload;
+  function NewValue<T>(APropertyName: String = ''): T; overload;
+  function NewValueList<T>(APropertyName: String = ''): TList<T>;
 
-  function getValue(aPropertyName: String; aType: TRttiType): TValue; overload;
-//  function getValue<T>: T; overload;
-  function getValue<T>(APropertyName: String = ''): T; overload;
   procedure Inject<T>(aValue: T); overload;
   procedure Inject<T>(aDelegate: TInjectNameDelegate<T>); overload;
   procedure Inject<T>(aPropertyName: String; aDelegate: TInjectDelegate<T>); overload;
@@ -67,8 +66,10 @@ public
   function Configure<T: Class>: TBaseConfig<T>;
   function Build<T: Class>: TBaseConfig<T>;
 
+  function getValue(aPropertyName: String; aType: TRttiType): TValue; overload;
   function getObject(AType: TRttiType): TObject; overload;
   function getObject(AType: TRttiType; AReferenceDepth: Integer): TObject; Overload;
+
   procedure CallMethod(AOnObject: TObject; vMethod: TRttiMethod);
   function RegisterType<T, TBind>: TTypeList;
   function ResolveType(ARttiType: TRttiType): TRttiType;
@@ -376,7 +377,7 @@ begin
   end;
 end;
 
-function TAutoFixture.getValue<T>(APropertyName: String): T;
+function TAutoFixture.NewValue<T>(APropertyName: String): T;
 var ctx: TRttiContext;
   vValue: TValue;
 begin
@@ -390,21 +391,6 @@ begin
     Result := vValue.AsType<T>;
   end;
 end;
-
-//function TAutoFixture.getValue<T>(): T;
-//var ctx: TRttiContext;
-//  vValue: TValue;
-//begin
-//  ctx := TRttiContext.Create;
-//  vValue := getValue('', ctx.getType(TypeInfo(T)));
-//
-//  if vValue.isEmpty then begin
-//    Result := Default(T);
-//  end
-//  else begin
-//    Result := vValue.AsType<T>;
-//  end;
-//end;
 
 function TAutoFixture.NewInterface<T>: T;
 begin
@@ -446,6 +432,17 @@ begin
 
   ctx.Free;
 end;
+
+function TAutoFixture.NewValueList<T>(APropertyName: String): TList<T>;
+var
+  i: Integer;
+begin
+  Result := TList<T>.Create;
+  for i := 1 to Fsetup.CollectionSize do begin
+    Result.Add(NewValue<T>(APropertyName));
+  end;
+end;
+
 
 function TAutoFixture.NewInterfaceList<T>: TList<T>;
 var

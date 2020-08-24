@@ -20,7 +20,7 @@ TTypeList = class
     function GetRandomType: TRttiType;
   public
     constructor Create(AType: TRttiType);
-    function Orto<T>: TTypeList;
+    function OrTo<T>: TTypeList;
 end;
 
 TAutoFixture = class;
@@ -38,23 +38,32 @@ private
   FBindtypeDict: TDictionary<TRttiType, TTypeList>;
   FConfigurationDict: TDictionary<TRttiType, IObjectGenerator>;
 
+  procedure setObjectProperties(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer);
+  procedure HandleCollection(ACollectionItemType: TRttiType);
+
+  // Deprecated methods!
+//  function NewInterfaceList<T: IInterface>: TList<T>; overload;
+//  function NewInterfaceList<T: IInterface>(AReferenceDepth: Integer): TList<T>; overload;
+//  function NewObject<T: Class>: T; overload;
+//  function NewInterface<T: IInterface>: T; overload;
+//  function NewInterface<T: IInterface>(AReferenceDepth: Integer): T; overload;
+
 public
   constructor Create;
   destructor Destroy; override;
-  function New<T: Class>: T; overload;
-  function New<T: Class>(AReferenceDepth: Integer): T; overload;
-  function NewInterface<T: IInterface>: T; overload;
-  function NewInterface<T: IInterface>(AReferenceDepth: Integer): T; overload;
-{TODO -ojehyk -cGeneral : Handle record types}
+  function New<T: Class>(AReferenceDepth: Integer; APropertyName: String = ''): T; overload;
+  function New<T>(APropertyName: String = ''): T; overload;
+
+  {TODO -ojehyk -cGeneral : Handle record types}
 //  function NewRecord<T: Record>: T; overload;
 //  function NewRecord<T: record>(AReferenceDepth: Integer): T; overload;
 
-  function NewList<T: Class>(AOwnsObjects: Boolean = True): TObjectList<T>; overload;
-  function NewList<T: Class>(AReferenceDepth: Integer; AOwnsObjects: Boolean = True): TObjectList<T>; overload;
-  function NewInterfaceList<T: IInterface>: TList<T>; overload;
-  function NewInterfaceList<T: IInterface>(AReferenceDepth: Integer): TList<T>; overload;
-  function NewValue<T>(APropertyName: String = ''): T; overload;
-  function NewValueList<T>(APropertyName: String = ''): TList<T>;
+  function NewObjectList<T: Class>(AOwnsObjects: Boolean = True): TObjectList<T>; overload;
+  function NewObjectList<T: Class>(AReferenceDepth: Integer; AOwnsObjects: Boolean = True): TObjectList<T>; overload;
+  function NewList<T>(APropertyName: String = ''): TList<T>;
+
+  procedure AddManyTo<T: Class>(var AList: T; ANumberOfElements: Integer=0);
+  procedure AddManyToArray<T>(var AArray: TArray<T>; ANumberOfElements: Integer=0);
 
   procedure Inject<T>(aValue: T); overload;
   procedure Inject<T>(aDelegate: TInjectNameDelegate<T>); overload;
@@ -63,14 +72,15 @@ public
   function DMock<T>(): Delphi.Mocks.TMock<T>;
   function SMock<T>(): Spring.Mocking.Mock<T>;
 
-  function Configure<T: Class>: TBaseConfig<T>;
-  function Build<T: Class>: TBaseConfig<T>;
+  function Configure<T: Class>: TObjectConfig<T>;
+  function Build<T: Class>: TObjectConfig<T>;
 
-  function getValue(aPropertyName: String; aType: TRttiType): TValue; overload;
-  function getObject(AType: TRttiType): TObject; overload;
-  function getObject(AType: TRttiType; AReferenceDepth: Integer): TObject; Overload;
+  function GetValue(aPropertyName: String; aType: TRttiType): TValue; overload;
+  function GetValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: Integer): TValue; overload;
+  //function getObject(AType: TRttiType): TObject; overload;
+  function GetObject(AType: TRttiType; AReferenceDepth: Integer = -1): TObject;
 
-  procedure CallMethod(AOnObject: TObject; vMethod: TRttiMethod);
+  function CallMethod(AOnObject: TObject; vMethod: TRttiMethod; AReferenceDepth: Integer = -1): TValue;
   function RegisterType<T, TBind>: TTypeList;
   function ResolveType(ARttiType: TRttiType): TRttiType;
   function Fixture: TAutofixture;
@@ -84,7 +94,7 @@ protected
 public
   constructor Create(AAutoFixture: TAutoFixture);
   Function Fixture: TAutoFixture;
-  function getValue(aPropertyName: String; aType: TRttiType): TValue;
+  function getValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: integer = -1): TValue;
   function getObject(AType: TRttiType; AReferenceDepth: Integer): TObject;
 end;
 
@@ -92,29 +102,80 @@ end;
 implementation
 
 uses SysUtils,
-  AutoFixture.IdGenerator;
+  AutoFixture.IdGenerator,
+  Spring;
 
 { TAutoFixture }
-function TAutoFixture.Build<T>: TBaseConfig<T>;
+procedure TAutoFixture.AddManyTo<T>(var AList: T; ANumberOfElements: Integer=0);
 var
+  i: Integer;
   ctx: TRttiContext;
   vType: TRttiType;
-  vGenerator: IObjectGenerator;
-  vEncapsulatedFixture: IObjectGenerator;
+  vMethod: TRttiMethod;
+  vParams: TArray<TRttiParameter>;
+  vParam: TRttiParameter;
+  vValueList: TArray<TValue>;
 begin
+  if ANumberOfElements <= 0 then begin
+    ANumberOfElements := FSetup.CollectionSize;
+  end;
+
   ctx := TRttiContext.Create;
   vType := ctx.GetType(TypeInfo(T));
 
-  if FConfigurationDict.TryGetValue(vType, vGenerator) then begin
-    Result := TBaseConfig<T>.Create(FSetup, vGenerator);
-  end
-  else begin
-    vEncapsulatedFixture := TEncapsulatedAutoFixture.Create(Self);
-    Result := TBaseConfig<T>.Create(FSetup, vEncapsulatedFixture);
+  // Find the "Add" method.
+  for vMethod in vType.GetMethods do begin
+    if (AnsiUpperCase(vMethod.Name) = 'ADD') then begin
+      vParams := vMethod.GetParameters;
+
+      if Length(vParams) = 1 then begin
+        vParam := vParams[0];
+        setLength(vValueList, 1);
+
+        for i := 1 to ANumberOfElements do begin
+          vValueList[0] := getValue('', vParam.ParamType);
+          vMethod.Invoke(AList, vValueList);
+        end;
+
+        break;
+      end
+      else if (Length(vParams) = 0) and (vMethod.ReturnType <> nil) then begin
+        setLength(vValueList, 0);
+
+        for i := 1 to ANumberOfElements do begin
+          vMethod.Invoke(AList, vValueList);
+        end;
+      end;
+    end;
   end;
 end;
 
-function TAutoFixture.Configure<T>: TBaseConfig<T>;
+procedure TAutoFixture.AddManyToArray<T>(var AArray: TArray<T>; ANumberOfElements: Integer=0);
+var
+  ctx: TRttiContext;
+  vType: TRttiType;
+  i: Integer;
+  vValue: TValue;
+  vActual: T;
+begin
+  ctx := TRttiContext.Create;
+  vType := ctx.GetType(TypeInfo(T));
+
+  if ANumberOfElements <= 0 then begin
+    ANumberOfElements := FSetup.CollectionSize;
+  end;
+
+  SetLength(AArray, Length(AArray) + ANumberOfElements);
+
+  for i := Length(AArray) - ANumberOfElements to Length(AArray) - 1 do begin
+    vValue := getValue('', vType);
+    if vValue.TryAsType(vActual) then begin
+      AArray[i] := vActual;
+    end;
+  end;
+end;
+
+function TAutoFixture.Build<T>: TObjectConfig<T>;
 var
   ctx: TRttiContext;
   vType: TRttiType;
@@ -125,14 +186,36 @@ begin
   vType := ctx.GetType(TypeInfo(T));
 
   if FConfigurationDict.TryGetValue(vType, vGenerator) then begin
-    Result := vGenerator as TBaseConfig<T>;
+    Result := TObjectConfig<T>.Create(FSetup, vGenerator);
   end
   else begin
     vEncapsulatedFixture := TEncapsulatedAutoFixture.Create(Self);
-    vGenerator := TBaseConfig<T>.Create(FSetup, vEncapsulatedFixture);
-    Result := TBaseConfig<T>(vGenerator);
+    Result := TObjectConfig<T>.Create(FSetup, vEncapsulatedFixture);
+  end;
+end;
+
+function TAutoFixture.Configure<T>: TObjectConfig<T>;
+var
+  ctx: TRttiContext;
+  vType: TRttiType;
+  vGenerator: IObjectGenerator;
+  vEncapsulatedFixture: IObjectGenerator;
+begin
+  ctx := TRttiContext.Create;
+  vType := ctx.GetType(TypeInfo(T));
+
+  if FConfigurationDict.TryGetValue(vType, vGenerator) then begin
+    if not (vGenerator is TObjectConfig<T>) then begin
+      vGenerator := TObjectConfig<T>.Create(FSetup, vGenerator);
+      FConfigurationDict[vType] := vGenerator;
+    end;
+  end
+  else begin
+    vEncapsulatedFixture := TEncapsulatedAutoFixture.Create(Self);
+    vGenerator := TObjectConfig<T>.Create(FSetup, vEncapsulatedFixture);
     FConfigurationDict.Add(vType, vGenerator);
   end;
+  Result := TObjectConfig<T>(vGenerator);
 end;
 
 constructor TAutoFixture.Create;
@@ -193,22 +276,65 @@ begin
   Result := Self;
 end;
 
-function TAutoFixture.getObject(AType: TRttiType): TObject;
+{$WARN UNSAFE_CAST OFF}
+procedure TAutoFixture.setObjectProperties(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer);
+var
+  vProperty: TRttiProperty;
+  vValue: TValue;
+  vGenerator: IObjectGenerator;
 begin
-  Result := Self.getObject(AType, Setup.ReferenceDepth);
+  // Check if there is a configuration for this object type
+  if FConfigurationDict.TryGetValue(AType, vGenerator) then begin
+    // Loop through and set properties using the generator found
+    for vProperty in AType.GetProperties do
+    begin
+      if vProperty.IsWritable then
+      begin
+        // Try to set property value
+        vValue := vGenerator.getValue(vProperty.Name, vProperty.PropertyType, AReferenceDepth);
+
+        if not vValue.IsEmpty then
+        begin
+          vProperty.SetValue(Pointer(AObject), vValue);
+        end;
+      end;
+    end;
+  end
+  else begin
+    // Loop through and set properties using Autofixture
+    for vProperty in AType.GetProperties do
+    begin
+      if vProperty.IsWritable then
+      begin
+        // Try to set property value
+        vValue := getValue(vProperty.Name, vProperty.PropertyType, AReferenceDepth);
+        if not vValue.IsEmpty then
+        begin
+          vProperty.SetValue(Pointer(AObject), vValue);
+        end;
+      end;
+    end;
+  end;
 end;
 
-function TAutoFixture.getObject(AType: TRttiType; AReferenceDepth: Integer): TObject;
+function TAutoFixture.GetObject(AType: TRttiType; AReferenceDepth: Integer = -1): TObject;
 var
   vMethod, vConstructor, vAddMethod: TRttiMethod;
   vParameterList: TArray<TRttiParameter>;
-  vProperty: TRttiProperty;
   vField: TRttiField;
   vValue: TValue;
   i: Integer;
   vCollectionDetected: Boolean;
   vConfig: IObjectGenerator;
 begin
+  if AReferenceDepth = -1 then begin
+    AReferenceDepth := Setup.ReferenceDepth
+  end
+  else if AReferenceDepth = 0 then begin
+    Result := nil;
+    Exit;
+  end;
+
   // Lookup type bindings
   AType := ResolveType(AType);
 
@@ -218,19 +344,33 @@ begin
   end
   else begin
     Result := AType.AsInstance.MetaclassType.Create;
-    vAddMethod := nil;
 
-    // Find constructor method
+    // Find methods
     vConstructor := nil;
+    vAddMethod := nil;
 
     if FSetup.ConstructorSearch = TConstructorSearch.csSimplest then begin
       // Find simplest constructor deklareret i klassen
       for vMethod in AType.GetMethods do begin
         if vMethod.IsConstructor then begin
           if Assigned(vConstructor) then begin
-            // Find simplest constructor
-            if Length(vMethod.GetParameters()) < Length(vConstructor.GetParameters()) then begin
-              vConstructor := vMethod;
+            // don't shift to parent class constructor once class constructor found
+            if vMethod.Parent = AType then begin
+              if vConstructor.Parent = AType then begin
+                if Length(vMethod.GetParameters()) < Length(vConstructor.GetParameters()) then begin
+                  vConstructor := vMethod;
+                end;
+              end
+              else begin
+                vConstructor := vMethod;
+              end;
+            end
+            else begin
+              if vConstructor.Parent <> AType then begin
+                if Length(vMethod.GetParameters()) < Length(vConstructor.GetParameters()) then begin
+                  vConstructor := vMethod;
+                end;
+              end;
             end;
           end
           else begin
@@ -238,7 +378,14 @@ begin
           end;
         end
         else if vMethod.Name = 'Add' then begin
-          vAddMethod := vMethod;
+          if Assigned(vAddMethod) then begin
+            if (vMethod.Parent = AType) and (vAddMethod.Parent <> AType) then begin
+              vAddMethod := vMethod;
+            end;
+          end
+          else begin
+            vAddMethod := vMethod;
+          end;
         end;
       end;
     end
@@ -254,6 +401,17 @@ begin
           else begin
             vConstructor := vMethod;
           end;
+        end
+        else if vMethod.Name = 'Add' then begin
+          vAddMethod := vMethod;
+        end;
+      end;
+    end
+    else begin
+      // Find only add method
+      for vMethod in AType.GetDeclaredMethods do begin
+        if vMethod.Name = 'Add' then begin
+          vAddMethod := vMethod;
         end;
       end;
     end;
@@ -267,11 +425,30 @@ begin
       vParameterList := vAddMethod.GetParameters;
 
       if Setup.AutoDetectList then begin
-        if Length(vParameterList) = 1 then begin
+        if Length(vParameterList) <= 1 then begin
           vCollectionDetected := True;
 
-          for i := 1 to Setup.CollectionSize do begin
-            CallMethod(Result, vAddMethod);
+          if Length(vParameterList) = 1 then begin
+            // Some type of list with an add method taking one parameter
+            for i := 1 to Setup.CollectionSize do begin
+              CallMethod(Result, vAddMethod, AReferenceDepth);
+            end;
+          end
+          else begin
+            // Probably some kind of collection with an add method returning a TCollectionItem
+            if Assigned(vAddMethod.ReturnType) and (vAddMethod.ReturnType.TypeKind = tkClass) then begin
+              for i := 1 to Setup.CollectionSize do begin
+                HandleCollection(vAddMethod.ReturnType);
+                vValue := CallMethod(Result, vAddMethod, AReferenceDepth);
+                if not vValue.IsEmpty then begin
+                  SetObjectProperties(vAddMethod.ReturnType, vValue.AsObject, AReferenceDepth);
+                end;
+              end;
+            end
+            else begin
+              // Nope, not a TCollection anyway
+              vCollectionDetected := False;
+            end;
           end;
         end;
       end
@@ -281,7 +458,7 @@ begin
             vCollectionDetected := True;
 
             for i := 1 to Setup.CollectionSize do begin
-              CallMethod(Result, vAddMethod);
+              CallMethod(Result, vAddMethod, AReferenceDepth);
             end;
           end;
         end;
@@ -290,69 +467,60 @@ begin
 
     if not vCollectionDetected then begin
       // Loop through and set fields
-      for vField in AType.GetFields do begin
-        if vField.Name <> 'FRefCount' then begin
-          // Try to set value
-          vValue := getValue(vField.Name, vField.FieldType);
 
-          if not vValue.IsEmpty then begin
-            vField.SetValue(Pointer(Result), vValue);
-          end
-          else begin
-            if Assigned(vField.FieldType) and (vField.FieldType.TypeKind = tkClass) then begin
-              if AReferenceDepth > 1 then begin
-                vValue := TValue.From(getObject(vField.FieldType, AReferenceDepth - 1));
-                vField.SetValue(Pointer(Result), vValue);
-              end;
-            end;
-          end;
-        end;
-      end;
-
-      // Loop through and set properties
-      for vProperty in AType.GetProperties do begin
-        if vProperty.IsWritable then begin
-          // Try to set property value
-          vValue := getValue(vProperty.Name, vProperty.PropertyType);
-
-          if not vValue.IsEmpty then begin
-            vProperty.SetValue(Pointer(Result), vValue);
-          end
-          else begin
-            if vProperty.PropertyType.TypeKind = tkClass then begin
-              if AReferenceDepth > 1 then begin
-                vValue := TValue.From(getObject(vProperty.PropertyType, AReferenceDepth - 1));
-                vProperty.SetValue(Pointer(Result), vValue);
-              end;
-            end;
-          end;
-        end;
-      end;
+//      for vField in AType.GetFields do begin
+//        if vField.Name <> 'FRefCount' then begin
+//          // Try to set value
+//          vValue := getValue(vField.Name, vField.FieldType, AReferenceDepth -1);
+//
+//          if not vValue.IsEmpty then begin
+//            vField.SetValue(Pointer(Result), vValue);
+//          end
+//          else begin
+//            if Assigned(vField.FieldType) and (vField.FieldType.TypeKind = tkClass) then begin
+//              if AReferenceDepth > 1 then begin
+//                vValue := TValue.From(getObject(vField.FieldType, AReferenceDepth - 1));
+//                vField.SetValue(Pointer(Result), vValue);
+//              end;
+//            end;
+//          end;
+//        end;
+//      end;
+      setObjectProperties(AType, Result, AReferenceDepth);
     end;
   end;
 end;
 
-procedure TAutoFixture.CallMethod(AOnObject: TObject; vMethod: TRttiMethod);
+function TAutoFixture.getValue(aPropertyName: String; aType: TRttiType): TValue;
+begin
+  Result := getValue(APropertyName, AType, Setup.ReferenceDepth);
+end;
+
+function TAutoFixture.CallMethod(AOnObject: TObject; vMethod: TRttiMethod; AReferenceDepth: Integer = -1): TValue;
 var
   vValueList: TList<TValue>;
   vParam: TRttiParameter;
   vValue: TValue;
 begin
+  if AReferenceDepth = -1 then begin
+    AReferenceDepth := FSetup.ReferenceDepth;
+  end;
+
   vValueList := TList<TValue>.Create;
   try
     for vParam in vMethod.GetParameters do
     begin
-      vValue := getValue(vParam.Name, vParam.ParamType);
+      vValue := getValue(vParam.Name, vParam.ParamType, AReferenceDepth);
       vValueList.Add(vValue);
     end;
-    vMethod.Invoke(AOnObject, vValueList.ToArray);
+    Result := vMethod.Invoke(AOnObject, vValueList.ToArray);
   finally
     FreeAndNil(vValueList);
   end;
 end;
 
 
-function TAutoFixture.getValue(APropertyName: String; AType: TRttiType): TValue;
+function TAutoFixture.getValue(APropertyName: String; AType: TRttiType; AReferenceDepth: Integer): TValue;
 var vGenerator: IValueGenerator;
   vValue: TValue;
 begin
@@ -362,109 +530,130 @@ begin
     AType := ResolveType(AType);
 
     for vGenerator in FGenerators do begin
-      vValue := vGenerator.getValue(aPropertyName, aType);
+      vValue := vGenerator.getValue(aPropertyName, aType, AReferenceDepth);
 
       if not vValue.IsEmpty then begin
         Result := vValue;
       end;
     end;
 
-    if vValue.IsEmpty then begin
+    if Result.IsEmpty then begin
       if AType.TypeKind = tkClass then begin
-        Result := TValue.From(getObject(AType));
+        Result := TValue.From(getObject(AType, AReferenceDepth));
       end;
     end;
   end;
 end;
 
-function TAutoFixture.NewValue<T>(APropertyName: String): T;
+procedure TAutoFixture.HandleCollection(ACollectionItemType: TRttiType);
+var
+  vGenerator: IObjectGenerator;
+  vCollectionItemGenerator: TCollectionItemGenerator;
+begin
+  if FConfigurationDict.TryGetValue(ACollectionItemType, vGenerator) then begin
+    // there is already a configured item for this element - best thing to do is to add a collectionItem handler on top
+    if not (vGenerator is TCollectionItemGenerator) then begin
+      FConfigurationDict[ACollectionItemType] := TCollectionItemGenerator.Create(ACollectionItemType, vGenerator);
+    end;
+  end
+  else begin
+    vCollectionItemGenerator := TCollectionItemGenerator.Create(ACollectionItemType, TEncapsulatedAutoFixture.Create(Self));
+    FConfigurationDict.Add(ACollectionItemType, vCollectionItemGenerator);
+  end;
+end;
+
+function TAutoFixture.New<T>(APropertyName: String): T;
 var ctx: TRttiContext;
   vValue: TValue;
+  vType: TRttiType;
 begin
   ctx := TRttiContext.Create;
-  vValue := getValue(APropertyName, ctx.getType(TypeInfo(T)));
+  vType := ctx.getType(TypeInfo(T));
+  vValue := getValue(APropertyName, vType);
 
   if vValue.isEmpty then begin
     Result := Default(T);
   end
   else begin
-    Result := vValue.AsType<T>;
+    if not vValue.TryAsType(Result) then begin
+      result := vValue.AsType<T>;
+    end;
   end;
 end;
 
-function TAutoFixture.NewInterface<T>: T;
-begin
-  Result := NewInterface<T>(Setup.ReferenceDepth);
-end;
+//function TAutoFixture.NewInterface<T>: T;
+//begin
+//  Result := NewInterface<T>(Setup.ReferenceDepth);
+//end;
 
-function TAutoFixture.NewInterface<T>(AReferenceDepth: Integer): T;
-var ctx: TRttiContext;
-  vType: TRttiType;
-  vValue: TValue;
-  vObj: TObject;
-  vObjCast: TInterfacedObject;
-  vIObj: IInterface;
-  vClassName: String;
-begin
-  Result := nil;
-  ctx := TRttiContext.Create;
-  vValue := getValue('', ctx.getType(TypeInfo(T)));
+//function TAutoFixture.NewInterface<T>(AReferenceDepth: Integer): T;
+//var ctx: TRttiContext;
+//  vType: TRttiType;
+//  vValue: TValue;
+//  vObj: TObject;
+//  vObjCast: TInterfacedObject;
+//  vIObj: IInterface;
+//  vClassName: String;
+//begin
+//  Result := nil;
+//  ctx := TRttiContext.Create;
+//  vValue := getValue('', ctx.getType(TypeInfo(T)));
+//
+//  if vValue.IsEmpty then begin
+//    vType := ctx.GetType(TypeInfo(T));
+//    vObj := getObject(vType, AReferenceDepth);
+//  end
+//  else begin
+//    vObj := vValue.AsObject;
+//  end;
+//
+//  vClassName := vObj.ClassName;
+//
+//  vObjCast := vObj as TInterfacedObject;
+//  vIObj := IInterface(vObjCast);
+//  Result := T(vIObj);
+//
+//  if (vObj is TInterfacedObject) and (vClassName<>'') then begin
+//    vObjCast := TInterfacedObject(vObj);
+//    vIObj := IInterface(vObjCast);
+//    Result := T(vIObj);
+//  end;
+//
+//  ctx.Free;
+//end;
 
-  if vValue.IsEmpty then begin
-    vType := ctx.GetType(TypeInfo(T));
-    vObj := getObject(vType, AReferenceDepth);
-  end
-  else begin
-    vObj := vValue.AsObject;
-  end;
-
-  vClassName := vObj.ClassName;
-
-  vObjCast := vObj as TInterfacedObject;
-  vIObj := IInterface(vObjCast);
-  Result := T(vIObj);
-
-  if (vObj is TInterfacedObject) and (vClassName<>'') then begin
-    vObjCast := TInterfacedObject(vObj);
-    vIObj := IInterface(vObjCast);
-    Result := T(vIObj);
-  end;
-
-  ctx.Free;
-end;
-
-function TAutoFixture.NewValueList<T>(APropertyName: String): TList<T>;
+function TAutoFixture.NewList<T>(APropertyName: String): TList<T>;
 var
   i: Integer;
 begin
   Result := TList<T>.Create;
   for i := 1 to Fsetup.CollectionSize do begin
-    Result.Add(NewValue<T>(APropertyName));
+    Result.Add(New<T>(APropertyName));
   end;
 end;
 
 
-function TAutoFixture.NewInterfaceList<T>: TList<T>;
-var
-  i: Integer;
-begin
-  Result := TList<T>.Create;
-  for i := 1 to Fsetup.CollectionSize do begin
-    Result.Add(NewInterFace<T>())
-  end;
-end;
+//function TAutoFixture.NewInterfaceList<T>: TList<T>;
+//var
+//  i: Integer;
+//begin
+//  Result := TList<T>.Create;
+//  for i := 1 to Fsetup.CollectionSize do begin
+//    Result.Add(NewInterFace<T>())
+//  end;
+//end;
 
-function TAutoFixture.NewInterfaceList<T>(AReferenceDepth: Integer): TList<T>;
-var
-  i: Integer;
-begin
-  Result := TList<T>.Create;
-  for i := 1 to Fsetup.CollectionSize do begin
-    Result.Add(NewInterFace<T>(AReferenceDepth))
-  end;
-end;
+//function TAutoFixture.NewInterfaceList<T>(AReferenceDepth: Integer): TList<T>;
+//var
+//  i: Integer;
+//begin
+//  Result := TList<T>.Create;
+//  for i := 1 to Fsetup.CollectionSize do begin
+//    Result.Add(NewInterFace<T>(AReferenceDepth))
+//  end;
+//end;
 
-function TAutoFixture.NewList<T>(AOwnsObjects: Boolean): TObjectList<T>;
+function TAutoFixture.NewObjectList<T>(AOwnsObjects: Boolean): TObjectList<T>;
 var
   i: Integer;
 begin
@@ -474,7 +663,7 @@ begin
   end;
 end;
 
-function TAutoFixture.NewList<T>(AReferenceDepth: Integer; AOwnsObjects: Boolean): TObjectList<T>;
+function TAutoFixture.NewObjectList<T>(AReferenceDepth: Integer; AOwnsObjects: Boolean): TObjectList<T>;
 var
   i: Integer;
 begin
@@ -565,7 +754,7 @@ begin
   end;
 end;
 
-function TTypeList.Orto<T>: TTypeList;
+function TTypeList.OrTo<T>: TTypeList;
 var ctx: TRttiContext;
 begin
   ctx := TRttiContext.Create;
@@ -589,24 +778,24 @@ begin
   Result := FAutoFixture.GetObject(AType, AReferenceDepth);
 end;
 
-function TEncapsulatedAutoFixture.getValue(APropertyName: String; AType: TRttiType): TValue;
+function TEncapsulatedAutoFixture.getValue(APropertyName: String; AType: TRttiType; AReferenceDepth: integer = -1): TValue;
 begin
-  Result := FAutoFixture.getValue(APropertyName, AType);
+  Result := FAutoFixture.getValue(APropertyName, AType, AReferenceDepth);
 end;
 
-function TAutoFixture.New<T>: T;
-begin
-  Result := Self.New<T>(Setup.ReferenceDepth);
-end;
+//function TAutoFixture.NewObject<T>: T;
+//begin
+//  Result := Self.New<T>(Setup.ReferenceDepth);
+//end;
 
-function TAutoFixture.New<T>(AReferenceDepth: Integer): T;
+function TAutoFixture.New<T>(AReferenceDepth: Integer; APropertyName: String = ''): T;
 var ctx: TRttiContext;
   vType: TRttiType;
   vValue: TValue;
   vObj: TObject;
 begin
   ctx := TRttiContext.Create;
-  vValue := getValue('', ctx.getType(TypeInfo(T)));
+  vValue := getValue(APropertyName, ctx.getType(TypeInfo(T)));
 
   if vValue.IsEmpty then begin
     vType := ctx.GetType(TypeInfo(T));

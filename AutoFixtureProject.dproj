@@ -148,7 +148,7 @@
         <DCC_XML_WHITESPACE_NOT_ALLOWED>error</DCC_XML_WHITESPACE_NOT_ALLOWED>
         <DCC_IMMUTABLE_STRINGS>true</DCC_IMMUTABLE_STRINGS>
         <DCC_EXPLICIT_STRING_CAST_LOSS>error</DCC_EXPLICIT_STRING_CAST_LOSS>
-        <DCC_UNSAFE_CAST>true</DCC_UNSAFE_CAST>
+        <DCC_UNSAFE_CAST>error</DCC_UNSAFE_CAST>
         <DCC_UNSAFE_TYPE>error</DCC_UNSAFE_TYPE>
         <DCC_EXPLICIT_STRING_CAST>true</DCC_EXPLICIT_STRING_CAST>
         <VerInfo_Locale>1033</VerInfo_Locale>
@@ -180,6 +180,7 @@
         <DCCReference Include="Test\Test.AutoFixture.Configure.pas"/>
         <DCCReference Include="Test\Test.AutoFixture.Build.pas"/>
         <DCCReference Include="Test\Test.Autofixture.exceptions.pas"/>
+        <DCCReference Include="Test\Test.Autofixture.Setup.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

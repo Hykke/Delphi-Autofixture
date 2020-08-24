@@ -42,15 +42,79 @@ public
 
     [Test]
     procedure TestInjectDelegate;
+
+    [Test]
+    procedure TestObjectConstructor;
+
+    [Test]
+    procedure AddToArray;
+
+    [Test]
+    procedure AddToTList;
+
+    [Test]
+    procedure AddToObjectList;
+
+    [Test]
+    procedure AddToCollection;
 end;
 
 
 
 implementation
 
-uses SysUtils;
+uses SysUtils,
+  System.Classes,
+  AutofixtureSetup;
 
 { TAutofixtureTest }
+
+procedure TAutofixtureTest.AddToArray;
+var vArray: TArray<Integer>;
+begin
+  // Arrange
+  // Act
+  UUT.AddManyToArray<Integer>(vArray);
+
+  // Assert
+  Assert.AreEqual(UUT.Setup.CollectionSize, Length(vArray), 'TArray<Integer> length');
+end;
+
+procedure TAutofixtureTest.AddToCollection;
+var vCol: TCollection;
+begin
+  // Arrange
+  //UUT.Setup.ConstructorSearch := TConstructorSearch.csNone;
+  //vCol := TCollection.Create;
+
+  vCol := UUT.New<TCollection>;
+  // Act
+  UUT.AddManyTo(vCol);
+  // Assert
+  Assert.AreEqual(UUT.Setup.CollectionSize * 2, vCol.Count, 'TCollection Size');
+end;
+
+procedure TAutofixtureTest.AddToObjectList;
+var vList: TObjectList<TTestAbstractClass>;
+begin
+  // Arrange
+  vList := UUT.NewObjectList<TTestAbstractClass>;
+  // Act
+  UUT.AddManyTo(vList);
+  // Assert
+  Assert.AreEqual(UUT.Setup.CollectionSize * 2, vList.Count, 'TObjectList Size');
+end;
+
+procedure TAutofixtureTest.AddToTList;
+var vList: TList<Integer>;
+begin
+  // Arrange
+  vList := UUT.NewList<Integer>;
+  // Act
+  UUT.AddManyTo(vList);
+  // Assert
+  Assert.AreEqual(UUT.Setup.CollectionSize * 2, vList.Count, 'TList Size');
+end;
 
 procedure TAutofixtureTest.Setup;
 begin
@@ -89,7 +153,7 @@ begin
   UUT.Inject<String>('Ploeh');
 
   // Act
-  s := UUT.NewValue<String>;
+  s := UUT.New<String>;
 
   // Assert
   Assert.AreEqual('Ploeh', s, 'String inject');
@@ -113,8 +177,8 @@ begin
   );
 
   // Act
-  str1 := UUT.NewValue<String>('AnythingElse');
-  str2 := UUT.NewValue<String>('MyName');
+  str1 := UUT.New<String>('AnythingElse');
+  str2 := UUT.New<String>('MyName');
 
   // Assert
   Assert.AreNotEqual('Mark Seemann', str1, 'String delegate');
@@ -130,7 +194,7 @@ begin
   UUT.RegisterType<TTestAbstractClass, TTestSubClass>;
 
   // Act
-  vIObj := UUT.NewInterface<ITestInterfaceType>;
+  vIObj := UUT.New<ITestInterfaceType>;
 
   // Assert
   Assert.IsTrue(vIObj is TTestSubClass);
@@ -146,10 +210,22 @@ begin
   UUT.RegisterType<ITestInterfaceType, TTestAbstractClass>;
   UUT.RegisterType<TTestAbstractClass, TTestSubClass>;
   // Act
-  vIObj := UUT.NewInterface<ITestInterfaceType>;
+  vIObj := UUT.New<ITestInterfaceType>;
 
   // Assert
   Assert.AreEqual(1,1)
+end;
+
+procedure TAutofixtureTest.TestObjectConstructor;
+var
+  vRes: TTestAbstractClass;
+begin
+  // Act
+  vRes := UUT.Build<TTestAbstractClass>.OmitAutoProperties.New;
+  vRes := TTestAbstractClass.Create;
+
+  // Assert
+  Assert.AreEqual('TEST', vRes.FProperty, 'Constructor call');
 end;
 
 procedure TAutofixtureTest.TestObjectInitialization;
@@ -170,7 +246,7 @@ procedure TAutofixtureTest.TestValueString;
 var s: String;
 begin
   // Act
-  s := UUT.NewValue<String>('Name');
+  s := UUT.New<String>('Name');
 
   // Assert
   Assert.AreNotEqual('', s, 'String generation');

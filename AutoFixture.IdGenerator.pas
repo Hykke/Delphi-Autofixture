@@ -14,7 +14,7 @@ private
   FId : Integer;
 public
   procedure SetStartValue(AStartId: Integer);
-  function getValue(aPropertyName: String; aType: TRttiType): TValue;
+  function getValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: integer = -1): TValue;
   constructor Create;
 end;
 
@@ -22,7 +22,7 @@ TidGeneratorAnyType = class(TInterfacedObject, IValueGenerator)
 private
   FIdDict: TDictionary<TRttiType, Integer>;
 public
-  function getValue(aPropertyName: String; aType: TRttiType): TValue;
+  function getValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: integer = -1): TValue;
   constructor Create;
 end;
 
@@ -37,7 +37,7 @@ begin
   FId := 1;
 end;
 
-function TIdGenerator.getValue(APropertyName: String; AType: TRttiType): TValue;
+function TIdGenerator.getValue(APropertyName: String; AType: TRttiType; AReferenceDepth: integer = -1): TValue;
 var
   vName: String;
 begin
@@ -62,7 +62,7 @@ begin
   FIdDict := TDictionary<TRttiType, Integer>.Create;
 end;
 
-function TidGeneratorAnyType.getValue(aPropertyName: String; aType: TRttiType): TValue;
+function TidGeneratorAnyType.getValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: integer = -1): TValue;
 var
   vId: Integer;
 begin

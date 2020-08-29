@@ -42,7 +42,6 @@ end;
 
 procedure TAutofixtureExceptionTest.TestLargeSet;
 var
-  vTest: TTestSubClass;
   vExpected: TWeekSet;
 begin
   // Arrange
@@ -63,7 +62,6 @@ end;
 
 procedure TAutofixtureExceptionTest.TestLargeSetByName;
 var
-  vTest: TTestSubClass;
   vExpected: TWeekSet;
 begin
   // Arrange
@@ -77,5 +75,8 @@ begin
     end,
     Exception, 'Autofixture is unable to get RTTI type information for this type', 'Type error');
 end;
+
+initialization
+  TDUnitX.RegisterTestFixture(TAutofixtureExceptionTest);
 
 end.

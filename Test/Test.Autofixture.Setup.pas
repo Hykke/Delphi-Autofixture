@@ -38,6 +38,8 @@ end;
 
 TTestReferenceDepth = class;
 
+// TTestReferenceDepthList = TList<TTestReferenceDepth>;
+
 TTestReferenceDepth = class(TCollectionItem)
 public
   FParent: TTestReferenceDepth;
@@ -46,7 +48,7 @@ public
 end;
 
 // Setup class reference for binding
-TCollectionItemClass = class of TCollectionItem;
+//TCollectionItemClass = class of TCollectionItem; // Use the one from Classes, otherwise there will be two differing types
 TTestReferenceDepthClass = class of TTestReferenceDepth;
 
 implementation
@@ -72,8 +74,9 @@ begin
   // Arrange
   UUT.Setup.ReferenceDepth := ADepth;
   // Because TTestReferenceDepth inherits from collectionItem, there are properties that should not be set
-  UUT.Configure<TTestReferenceDepth>.Omit<Integer>('Index'); // Don't try to set a value for index
-  UUT.Configure<TTestReferenceDepth>.Omit<TCollection>('Collection'); // Don't try to set a value for Collection
+  //UUT.Configure<TTestReferenceDepth>.Omit<Integer>('Index'); // Don't try to set a value for index
+  //UUT.Configure<TTestReferenceDepth>.Omit<TCollection>('Collection'); // Don't try to set a value for Collection
+  UUT.Configure<TTestReferenceDepth>.Omit<TCollection>('FCollection'); // Optimization, not needed for this test
   // Act
   vTestDepth := UUT.New<TTestReferenceDepth>;
   // Assert
@@ -110,8 +113,10 @@ begin
   UUT.Setup.ReferenceDepth := ADepth;
   UUT.RegisterType<TCollectionItemClass, TTestReferenceDepthClass>; // This initializes the TCollection to contain TTestReferenceDepth instances
   // Because TTestReferenceDepth inherits from collectionItem, there are properties that should not be set
-  UUT.Configure<TTestReferenceDepth>.Omit<Integer>('Index'); // Don't try to set a value for index
-  UUT.Configure<TTestReferenceDepth>.Omit<TCollection>('Collection'); // Don't try to set a value for Collection
+  //UUT.Configure<TTestReferenceDepth>.Omit<TCollection>('Index'); // Don't try to set a value for index
+  //UUT.Configure<TTestReferenceDepth>.Omit<TCollection>('Collection'); // Don't try to set a value for Collection
+  UUT.Configure<TTestReferenceDepth>.Omit<TList<TTestReferenceDepth>>('FList'); // only interested in the collection for this testcase
+  UUT.Configure<TTestReferenceDepth>.Omit<TTestReferenceDepth>('FParent'); // only interested in the collection for this testcase
   // Act
   vTestDepth := UUT.New<TTestReferenceDepth>;
   // Assert
@@ -130,5 +135,8 @@ begin
   end;
   Assert.AreEqual(ADepth, vDepth, 'List depth');
 end;
+
+initialization
+  TDUnitX.RegisterTestFixture(TAutofixtureSetupTest);
 
 end.

@@ -198,7 +198,7 @@ begin
 
   // Assert
   Assert.IsTrue(vIObj is TTestSubClass);
-  Assert.AreNotEqual('', TTestSubClass(vIObj).FSubProperty, 'Properties must have been initialized');
+  Assert.AreNotEqual('', TTestSubClass(vIObj).FSubProperty, 'Properties initialized');
   Assert.AreEqual(TTestSubClass(vIObj).FList.Count, UUT.Setup.CollectionSize, 'List initialized with correct size');
 end;
 
@@ -222,7 +222,6 @@ var
 begin
   // Act
   vRes := UUT.Build<TTestAbstractClass>.OmitAutoProperties.New;
-  vRes := TTestAbstractClass.Create;
 
   // Assert
   Assert.AreEqual('TEST', vRes.FProperty, 'Constructor call');
@@ -251,5 +250,8 @@ begin
   // Assert
   Assert.AreNotEqual('', s, 'String generation');
 end;
+
+initialization
+  TDUnitX.RegisterTestFixture(TAutofixtureTest);
 
 end.

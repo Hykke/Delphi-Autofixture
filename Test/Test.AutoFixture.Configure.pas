@@ -410,4 +410,7 @@ begin
   Assert.AreEqual(AValue, vTest.FExtended, 'Configure Extended');
 end;
 
+initialization
+  TDUnitX.RegisterTestFixture(TAutofixtureConfigureTest);
+
 end.

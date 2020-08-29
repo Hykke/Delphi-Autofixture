@@ -12,6 +12,7 @@ uses
 type
 
 // CLASSES CONTAINING TEST DATA (Not code classes)
+{$M+} // Ensure RTTI information is turned on
 TSteeringWheel = class
 protected
   FDirectionAngle: Double;

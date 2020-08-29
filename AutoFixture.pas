@@ -103,7 +103,8 @@ implementation
 
 uses SysUtils,
   AutoFixture.IdGenerator,
-  Spring;
+  Spring,
+  AutoFixtureLibrary;
 
 { TAutoFixture }
 procedure TAutoFixture.AddManyTo<T>(var AList: T; ANumberOfElements: Integer=0);
@@ -280,28 +281,70 @@ end;
 procedure TAutoFixture.setObjectProperties(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer);
 var
   vProperty: TRttiProperty;
+  vField: TRttiField;
   vValue: TValue;
   vGenerator: IObjectGenerator;
 begin
   // Check if there is a configuration for this object type
   if FConfigurationDict.TryGetValue(AType, vGenerator) then begin
-    // Loop through and set properties using the generator found
-    for vProperty in AType.GetProperties do
-    begin
-      if vProperty.IsWritable then
-      begin
-        // Try to set property value
-        vValue := vGenerator.getValue(vProperty.Name, vProperty.PropertyType, AReferenceDepth);
+    // Loop through and set fields using the generator found
+    for vField in AType.GetFields do begin
+      if vField.Name <> 'FRefCount' then begin
+        // Try to set value
+        vValue := vGenerator.getValue(vField.Name, vField.FieldType);
 
-        if not vValue.IsEmpty then
-        begin
-          vProperty.SetValue(Pointer(AObject), vValue);
+        if not vValue.IsEmpty then begin
+          vField.SetValue(Pointer(AObject), vValue);
+        end
+        else begin
+          if Assigned(vField.FieldType) and (vField.FieldType.TypeKind = tkClass) then begin
+            if AReferenceDepth > 1 then begin
+              vValue := TValue.From(getObject(vField.FieldType, AReferenceDepth - 1));
+              if not vValue.IsEmpty then begin
+                vField.SetValue(Pointer(AObject), vValue);
+              end;
+            end;
+          end;
         end;
       end;
     end;
+//    // Loop through and set properties using the generator found
+//    for vProperty in AType.GetProperties do
+//    begin
+//      if vProperty.IsWritable then
+//      begin
+//        // Try to set property value
+//        vValue := vGenerator.getValue(vProperty.Name, vProperty.PropertyType, AReferenceDepth);
+//
+//        if not vValue.IsEmpty then
+//        begin
+//          vProperty.SetValue(Pointer(AObject), vValue);
+//        end;
+//      end;
+//    end;
   end
   else begin
-    // Loop through and set properties using Autofixture
+    // Loop through and set fields
+    for vField in AType.GetFields do begin
+      if vField.Name <> 'FRefCount' then begin
+        // Try to set value
+        vValue := getValue(vField.Name, vField.FieldType);
+
+        if not vValue.IsEmpty then begin
+          vField.SetValue(Pointer(AObject), vValue);
+        end
+        else begin
+          if Assigned(vField.FieldType) and (vField.FieldType.TypeKind = tkClass) then begin
+            if AReferenceDepth > 1 then begin
+              vValue := TValue.From(getObject(vField.FieldType, AReferenceDepth - 1));
+              vField.SetValue(Pointer(AObject), vValue);
+            end;
+          end;
+        end;
+      end;
+    end;
+
+    // Loop through and set properties
     for vProperty in AType.GetProperties do
     begin
       if vProperty.IsWritable then
@@ -319,9 +362,8 @@ end;
 
 function TAutoFixture.GetObject(AType: TRttiType; AReferenceDepth: Integer = -1): TObject;
 var
-  vMethod, vConstructor, vAddMethod: TRttiMethod;
+  vConstructor, vAddMethod: TRttiMethod;
   vParameterList: TArray<TRttiParameter>;
-  vField: TRttiField;
   vValue: TValue;
   i: Integer;
   vCollectionDetected: Boolean;
@@ -345,79 +387,11 @@ begin
   else begin
     Result := AType.AsInstance.MetaclassType.Create;
 
-    // Find methods
-    vConstructor := nil;
-    vAddMethod := nil;
-
-    if FSetup.ConstructorSearch = TConstructorSearch.csSimplest then begin
-      // Find simplest constructor deklareret i klassen
-      for vMethod in AType.GetMethods do begin
-        if vMethod.IsConstructor then begin
-          if Assigned(vConstructor) then begin
-            // don't shift to parent class constructor once class constructor found
-            if vMethod.Parent = AType then begin
-              if vConstructor.Parent = AType then begin
-                if Length(vMethod.GetParameters()) < Length(vConstructor.GetParameters()) then begin
-                  vConstructor := vMethod;
-                end;
-              end
-              else begin
-                vConstructor := vMethod;
-              end;
-            end
-            else begin
-              if vConstructor.Parent <> AType then begin
-                if Length(vMethod.GetParameters()) < Length(vConstructor.GetParameters()) then begin
-                  vConstructor := vMethod;
-                end;
-              end;
-            end;
-          end
-          else begin
-            vConstructor := vMethod;
-          end;
-        end
-        else if vMethod.Name = 'Add' then begin
-          if Assigned(vAddMethod) then begin
-            if (vMethod.Parent = AType) and (vAddMethod.Parent <> AType) then begin
-              vAddMethod := vMethod;
-            end;
-          end
-          else begin
-            vAddMethod := vMethod;
-          end;
-        end;
-      end;
-    end
-    else if FSetup.ConstructorSearch = TConstructorSearch.csMostParams then begin
-      // Find constructor with many params
-      for vMethod in AType.GetDeclaredMethods do begin
-        if vMethod.IsConstructor then begin
-          if Assigned(vConstructor) then begin
-            if Length(vMethod.GetParameters()) > Length(vConstructor.GetParameters()) then begin
-              vConstructor := vMethod;
-            end;
-          end
-          else begin
-            vConstructor := vMethod;
-          end;
-        end
-        else if vMethod.Name = 'Add' then begin
-          vAddMethod := vMethod;
-        end;
-      end;
-    end
-    else begin
-      // Find only add method
-      for vMethod in AType.GetDeclaredMethods do begin
-        if vMethod.Name = 'Add' then begin
-          vAddMethod := vMethod;
-        end;
-      end;
-    end;
+    // Find constructor and optionally Add methods
+    TAutofixtureLibrary.GetMethods(FSetup, AType, vConstructor, vAddMethod);
 
     if vConstructor <> nil then begin
-      CallMethod(Result, vConstructor);
+      CallMethod(Result, vConstructor, AReferenceDepth);
     end;
 
     vCollectionDetected := False;
@@ -438,10 +412,10 @@ begin
             // Probably some kind of collection with an add method returning a TCollectionItem
             if Assigned(vAddMethod.ReturnType) and (vAddMethod.ReturnType.TypeKind = tkClass) then begin
               for i := 1 to Setup.CollectionSize do begin
-                HandleCollection(vAddMethod.ReturnType);
                 vValue := CallMethod(Result, vAddMethod, AReferenceDepth);
+                HandleCollection(vValue.ValueType);
                 if not vValue.IsEmpty then begin
-                  SetObjectProperties(vAddMethod.ReturnType, vValue.AsObject, AReferenceDepth);
+                  SetObjectProperties(vValue.ValueType, vValue.AsObject, AReferenceDepth);
                 end;
               end;
             end
@@ -539,7 +513,9 @@ begin
 
     if Result.IsEmpty then begin
       if AType.TypeKind = tkClass then begin
-        Result := TValue.From(getObject(AType, AReferenceDepth));
+        if AReferenceDepth > 0 then begin
+          Result := TValue.From(getObject(AType, AReferenceDepth));
+        end;
       end;
     end;
   end;
@@ -705,17 +681,34 @@ function TAutoFixture.RegisterType<T, TBind>: TTypeList;
 var ctx: TRttiContext;
   vType, vBindType: TRttiType;
   vValue: TValue;
+  vProperty: TRttiProperty;
+  vPropertyFound: Boolean;
 begin
   ctx := TRttiContext.Create;
   vType := ctx.getType(TypeInfo(T));
   vBindType := ctx.getType(TypeInfo(TBind));
 
+  Result := TTypeList.Create(vBindType);
+
+  if vBindType.TypeKind = tkClass then begin
+    vPropertyFound := False;
+    for vProperty in vBindType.GetProperties do begin
+      vPropertyFound := True;
+    end;
+
+    if not vPropertyFound then begin
+
+    end;
+  end;
+
+
+
   if FBindtypeDict.ContainsKey(vType) then begin
     FBindtypeDict[vType].Free;
-    FBindTypeDict[vType] := TTypeList.Create(vBindType);
+    FBindTypeDict[vType] := Result;
   end
   else begin
-    FBindtypeDict.Add(vType, TTypeList.Create(vBindType));
+    FBindtypeDict.Add(vType, Result);
   end;
 end;
 

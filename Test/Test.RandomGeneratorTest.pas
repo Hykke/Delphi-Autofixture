@@ -392,4 +392,7 @@ begin
   Assert.IsTrue(vValue.AsType<Word>() > 0, 'Der kan genereres en Word');
 end;
 
+initialization
+  TDUnitX.RegisterTestFixture(TRandomGeneratorTest);
+
 end.

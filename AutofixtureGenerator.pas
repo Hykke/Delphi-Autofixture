@@ -11,7 +11,7 @@ type
 {$SCOPEDENUMS ON}
 
 IValueGenerator = interface
-  function getValue(aPropertyName: String; aType: TRttiType): TValue;
+  function getValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: integer = -1): TValue;
 end;
 
 IObjectGenerator = interface(IValueGenerator)
@@ -35,11 +35,7 @@ public
   procedure Register(aPropertyName: String; aDelegate: TInjectDelegate<T>); overload;
   procedure Register(aDelegate: TInjectNameDelegate<T>); overload;
   function canGenerate(aPropertyName: String): Boolean;
-  function getValue(aPropertyName: String; aType:TRttiType): TValue;
-end;
-
-IBaseConfig<T> = interface(IValueGenerator)
-  Function New: T;
+  function getValue(aPropertyName: String; aType:TRttiType; AReferenceDepth: integer = -1): TValue;
 end;
 
 TProcessProperty = (Uninitialized, Omit, ValueSet);
@@ -52,17 +48,28 @@ private
   FConfiguredPropertyValue: TValue; // If any!
   FPropertyIdentifier: TValue;
   FProcessProperty: TProcessProperty;
-public
-  constructor Create(); virtual;
 end;
 
-TBaseConfig<T: Class> = class(TInterfacedObject, IObjectGenerator)
+TBaseConfig = class(TInterfacedObject, IObjectGenerator)
 protected
   FType: TRttiType;
-  FSetup: TAutofixtureSetup;
-  FPreviousConfig: IObjectGenerator;
+  FPreviousGenerator: IObjectGenerator;
   FProperties: TDictionary<String, TPropertyConfig>;
   FPropertiesByType: TDictionary<TRttiType, TList<TPropertyConfig>>;
+  FInitializedTypes: TList<TRttiType>;
+
+  procedure InitProperties;
+  procedure CallConstructor(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer = -1); Virtual; Abstract;
+public
+  constructor Create(AType: TRttiType; APreviousConfig: IObjectGenerator);
+  destructor Destroy; override;
+  function GetValue(APropertyName: String; AType:TRttiType; AReferenceDepth: integer = -1): TValue; virtual;
+  function GetObject(AType: TRttiType; AReferenceDepth: Integer): TObject; virtual;
+end;
+
+TObjectConfig<T: Class> = class(TBaseConfig)
+protected
+  FSetup: TAutofixtureSetup;
   FRttiContext: TRttiContext;
   FExecList: TList<TObjectModifyProcedure<T>>;
   FObject: T;
@@ -70,32 +77,47 @@ protected
   function GetPropertyFromSelector<Typ>(AProperty: TPropertySelector<T, Typ>): TPropertyConfig;
   function GenerateIndexValue(AType: TRttiType; AIndex: Integer): TValue;
   function GetIndexFromValue<Typ>(AValue: Typ): Integer;
-  procedure InitProperties();
+  //procedure InitProperties();
+  procedure InitType(AType: TRttiType);
+  procedure CallConstructor(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer = -1); override;
+  function CallMethod(AOnObject: TObject; vMethod: TRttiMethod; AReferenceDepth: Integer = -1): TValue;
 public
-  constructor Create(AAutofixtueSetup: TAutoFixtureSetup; APreviousConfig: IObjectGenerator); virtual;
+  constructor Create(AAutofixtueSetup: TAutoFixtureSetup; APreviousConfig: IObjectGenerator);
   destructor Destroy; override;
-  function getValue(aPropertyName: String; aType:TRttiType): TValue;
-  function getObject(AType: TRttiType; AReferenceDepth: Integer): TObject;
-  function OmitAutoProperties: TBaseConfig<T>;
-  function WithValue<Typ>(AProperty: String; AValue: Typ): TBaseConfig<T>; overload;
-  function WithValue<Typ>(AProperty: TPropertySelector<T, Typ>; AValue: Typ): TBaseConfig<T>; overload;
-  function Without<Typ>(AProperty: String): TBaseConfig<T>; overload;
-  function Without<Typ>(AProperty: TPropertySelector<T, Typ>): TBaseConfig<T>; overload;
-  function Omit<Typ>(AProperty: String): TBaseConfig<T>; overload;
-  function Omit<Typ>(AProperty: TPropertySelector<T, Typ>): TBaseConfig<T>; overload;
-  function Exec(AProcedureModifier: TObjectModifyProcedure<T>): TBaseConfig<T>; overload;
+//  function getValue(aPropertyName: String; aType:TRttiType): TValue;
+//  function getObject(AType: TRttiType; AReferenceDepth: Integer): TObject;
+  function OmitAutoProperties: TObjectConfig<T>;
+  function WithValue<Typ>(AProperty: String; AValue: Typ): TObjectConfig<T>; overload;
+  function WithValue<Typ>(AProperty: TPropertySelector<T, Typ>; AValue: Typ): TObjectConfig<T>; overload;
+  function Without<Typ>(AProperty: String): TObjectConfig<T>; overload;
+  function Without<Typ>(AProperty: TPropertySelector<T, Typ>): TObjectConfig<T>; overload;
+  function Omit<Typ>(AProperty: String): TObjectConfig<T>; overload;
+  function Omit<Typ>(AProperty: TPropertySelector<T, Typ>): TObjectConfig<T>; overload;
+  function Exec(AProcedureModifier: TObjectModifyProcedure<T>): TObjectConfig<T>; overload;
   function New: T;
 end;
 
 TRandomGenerator = class(TinterfacedObject, IValueGenerator)
-  function getValue(aPropertyName: String; aType: TRttiType): TValue;
+  function getValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: integer = -1): TValue;
+end;
+
+TCollectionItemGenerator = class(TBaseConfig)
+protected
+  procedure CallConstructor(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer = -1); override;
+public
+  constructor Create(AType: TRttiType; APreviousConfig: IObjectGenerator); virtual;
+  destructor Destroy; override;
+  function GetValue(APropertyName: String; AType:TRttiType; AReferenceDepth: integer = -1): TValue; override;
+//  function getObject(AType: TRttiType; AReferenceDepth: Integer): TObject;
 end;
 
 implementation
 
 uses SysUtils,
+  System.Classes,
   Dateutils,
-  Spring.Mocking.Matching;
+  Spring.Mocking.Matching,
+  AutofixtureLibrary;
 
 
 { TValueGenerator }
@@ -125,19 +147,16 @@ begin
   inherited;
 end;
 
-function TValueGenerator<T>.getValue(aPropertyName: String; aType:TRttiType): TValue;
+function TValueGenerator<T>.getValue(aPropertyName: String; aType:TRttiType; AReferenceDepth: integer = -1): TValue;
 var vGetByName: TInjectNameDelegate<T>;
   vSimpleGet: TInjectDelegate<T>;
   vType: TRttiType;
 begin
-  //vType := typeInfo(T);
   if FTypeInfo = aType  then begin
     if FPropertyName = 'A' + aPropertyName then begin
-      //vSimpleGet := TInjectDelegate<T>(FDelegate);
       Result := TValue.From<T>(FDelegate());
     end
     else if FPropertyName = '' then begin
-      //vGetByName := TInjectDelegate<T>(FDelegate);
       Result := TValue.From<T>(FNameDelegate(aPropertyName));
     end
     else begin
@@ -163,9 +182,11 @@ end;
 
 { TRandomGenerator }
 
-function TRandomGenerator.getValue(APropertyName: String; AType: TRttiType): TValue;
+function TRandomGenerator.getValue(APropertyName: String; AType: TRttiType; AReferenceDepth: integer = -1): TValue;
 var i: Integer;
   vGuid: TGuid;
+  vClassRef: TClass;
+  vType: TRttiClassRefType;
 begin
   Result := TValue.Empty;
 
@@ -217,6 +238,11 @@ begin
     end;
     tkInterface: begin
       Result := TValue.From(nil); {TODO -oJEHYK -cAutoMock : Make mock object dynamically}
+    end;
+    tkClassRef: begin
+      vType := AType as TRttiClassRefType;
+      vClassRef := vType.MetaclassType;
+      Result := TValue.From(vClassRef); // Gets the topmost classref that it's possible to assign - not always correct, but the best we can do
     end;
   end;
 {
@@ -273,7 +299,42 @@ end;
 
 { TBaseConfig<T> }
 
-constructor TBaseConfig<T>.Create(AAutofixtueSetup: TAutoFixtureSetup; APreviousConfig: IObjectGenerator);
+{$WARN UNSAFE_CAST OFF}
+procedure TObjectConfig<T>.CallConstructor(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer = -1);
+var
+  vConstructor, vAddMethod: TRttiMethod;
+begin
+  TAutofixtureLibrary.GetMethods(FSetup, AType, vConstructor, vAddMethod);
+
+  if vConstructor <> nil then begin
+    CallMethod(AObject, vConstructor, AReferenceDepth);
+  end;
+end;
+
+function TObjectConfig<T>.CallMethod(AOnObject: TObject; vMethod: TRttiMethod; AReferenceDepth: Integer = -1): TValue;
+var
+  vValueList: TList<TValue>;
+  vParam: TRttiParameter;
+  vValue: TValue;
+begin
+  if AReferenceDepth = -1 then begin
+    AReferenceDepth := FSetup.ReferenceDepth;
+  end;
+
+  vValueList := TList<TValue>.Create;
+  try
+    for vParam in vMethod.GetParameters do
+    begin
+      vValue := getValue(vParam.Name, vParam.ParamType, AReferenceDepth);
+      vValueList.Add(vValue);
+    end;
+    Result := vMethod.Invoke(AOnObject, vValueList.ToArray);
+  finally
+    FreeAndNil(vValueList);
+  end;
+end;
+
+constructor TObjectConfig<T>.Create(AAutofixtueSetup: TAutoFixtureSetup; APreviousConfig: IObjectGenerator);
 var
   vObject: T;
   vPByte: ^Byte;
@@ -283,51 +344,32 @@ var
   vConfig: TPropertyConfig;
 begin
   FSetup := AAutofixtueSetup;
-  FPreviousConfig := APreviousConfig;
-  FProperties := TDictionary<String, TPropertyConfig>.Create;
-  FPropertiesByType := TDictionary<TRttiType, TList<TPropertyConfig>>.Create;
-
   FExecList := TList<TObjectModifyProcedure<T>>.Create;
 
   // Find all properties
   FRttiContext := TRttiContext.Create;
-  FType := FRttiContext.GetType(TypeInfo(T));
-  InitProperties;
+  inherited Create(FRttiContext.GetType(TypeInfo(T)), APreviousConfig);
 
+  // TODO: Make lazy!
+  // Initialize "Object property finder"
   FObject := T(FType.AsInstance.MetaclassType.Create);
-
-  for vList in FPropertiesByType.Values do begin
-    for i := 0 to vList.Count - 1 do begin
-      vConfig := vList[i];
-      vValue := GenerateIndexValue(vConfig.FType, i);
-
-      if not vValue.IsEmpty then begin
-        // Write value to object
-        vConfig.FFieldType.SetValue(pointer(FObject), vValue);
-      end;
-      // Now get value we check against
-      vConfig.FPropertyIdentifier := vConfig.FFieldType.GetValue(pointer(FObject));
-    end;
-  end;
   vList := nil;
 end;
 
-destructor TBaseConfig<T>.Destroy;
+destructor TObjectConfig<T>.Destroy;
 begin
-  FreeAndNil(FProperties);
-  FreeAndNil(FPropertiesByType);
   FreeAndNil(FExecList);
 
   inherited;
 end;
 
-function TBaseConfig<T>.Exec(AProcedureModifier: TObjectModifyProcedure<T>): TBaseConfig<T>;
+function TObjectConfig<T>.Exec(AProcedureModifier: TObjectModifyProcedure<T>): TObjectConfig<T>;
 begin
   Result := Self;
   FExecList.Add(AProcedureModifier);
 end;
 
-function TBaseConfig<T>.GetIndexFromValue<Typ>(AValue: Typ): Integer;
+function TObjectConfig<T>.GetIndexFromValue<Typ>(AValue: Typ): Integer;
 var
   vValue: TValue;
 begin
@@ -402,7 +444,7 @@ tkDynArray
 
 end;
 
-function TBaseConfig<T>.GenerateIndexValue(AType: TRttiType; AIndex: Integer): TValue;
+function TObjectConfig<T>.GenerateIndexValue(AType: TRttiType; AIndex: Integer): TValue;
 var i: Integer;
   vObject: TObject;
   vPointer: ^TObject;
@@ -481,64 +523,25 @@ tkDynArray
 
 end;
 
-function TBaseConfig<T>.getValue(aPropertyName: String; aType: TRttiType): TValue;
-var
-  vConfig: TPropertyConfig;
-begin
-  Result := TValue.Empty;
-  if FProperties.TryGetValue(aPropertyName.ToUpper, vConfig) then begin
-    case vConfig.FProcessProperty of
-      TProcessProperty.ValueSet: Result := vConfig.FConfiguredPropertyValue;
-      TProcessProperty.Uninitialized: Result := FPreviousConfig.getValue(aPropertyName, aType);
-    end;
-  end;
-end;
-
-function TBaseConfig<T>.getObject(AType: TRttiType; AReferenceDepth: Integer): TObject;
+function TObjectConfig<T>.New: T;
 var
   vConfig: TPropertyConfig;
   vValue: TValue;
 begin
-  Result := FType.AsInstance.MetaclassType.Create as T;
+  Result := Self.GetObject(FType, FSetup.ReferenceDepth) as T;
 
-  // Now loop through properties
-  for vConfig in Self.FProperties.Values do begin
-    vValue := getValue(vConfig.FPropertyName, vConfig.FType);
-    if vValue.IsEmpty then begin
-      // This configuration does not know how to handle this property, ask parent
-      // Jehyk: asking parent here should not be necessary, since getValue already does this
-      //        in fact this ruins the "Omit" logic
-//      if Assigned(vConfig.FType) and (vConfig.FType.TypeKind in [TTypeKind.tkClass, TTypeKind.tkInterface]) then begin
-//        vValue := FPreviousConfig.getObject(vConfig.FType, AReferenceDepth - 1);
-//      end
-//      else begin
-//        vValue := FPreviousConfig.getValue(vConfig.FPropertyName, vConfig.FType);
-//      end;
-    end;
-
-    if not vValue.IsEmpty then begin
-      vConfig.FFieldType.SetValue(Pointer(Result), vValue);
-    end
-  end;
+//  Result := FType.AsInstance.MetaclassType.Create as T;
+//
+//  // Now loop through properties
+//  for vConfig in Self.FProperties.Values do begin
+//    vValue := getValue(vConfig.FPropertyName, vConfig.FType);
+//    if not vValue.IsEmpty then begin
+//      vConfig.FFieldType.SetValue(Pointer(Result), vValue);
+//    end;
+//  end;
 end;
 
-function TBaseConfig<T>.New: T;
-var
-  vConfig: TPropertyConfig;
-  vValue: TValue;
-begin
-  Result := FType.AsInstance.MetaclassType.Create as T;
-
-  // Now loop through properties
-  for vConfig in Self.FProperties.Values do begin
-    vValue := getValue(vConfig.FPropertyName, vConfig.FType);
-    if not vValue.IsEmpty then begin
-      vConfig.FFieldType.SetValue(Pointer(Result), vValue);
-    end;
-  end;
-end;
-
-procedure TBaseConfig<T>.InitProperties();
+procedure TBaseConfig.InitProperties();
 var
   vField: TRttiField;
   vPropertyConfig: TPropertyConfig;
@@ -546,33 +549,62 @@ var
 begin
   for vField in FType.GetFields do
   begin
-    if (vField.Name <> 'FRefCount') then
-    begin
-      vPropertyConfig := TPropertyConfig.Create;
-      vPropertyConfig.FFieldType := vField;
-      vPropertyConfig.FType := vField.FieldType;
-      vPropertyConfig.FPropertyName := vField.Name;
+    vPropertyConfig := TPropertyConfig.Create;
+    vPropertyConfig.FFieldType := vField;
+    vPropertyConfig.FType := vField.FieldType;
+    vPropertyConfig.FPropertyName := vField.Name;
+
+    if (vField.Name = 'FRefCount')  then begin
+      vPropertyConfig.FProcessProperty := TProcessProperty.Omit;
+    end;
+
+    if not FProperties.ContainsKey(vPropertyConfig.FPropertyName.ToUpper) then begin
       FProperties.Add(vPropertyConfig.FPropertyName.ToUpper, vPropertyConfig);
+    end;
 
-      if Assigned(vPropertyConfig.FType) and FPropertiesByType.TryGetValue(vPropertyConfig.FType, vList) then
-      begin
-        vList.Add(vPropertyConfig);
-      end
-      else begin
-        vList := TList<TPropertyConfig>.Create;
-        vList.Add(vPropertyConfig);
+    if Assigned(vPropertyConfig.FType) and FPropertiesByType.TryGetValue(vPropertyConfig.FType, vList) then
+    begin
+      vList.Add(vPropertyConfig);
+    end
+    else begin
+      vList := TList<TPropertyConfig>.Create;
+      vList.Add(vPropertyConfig);
 
-        if Assigned(vPropertyConfig.FType) then begin
-          FPropertiesByType.Add(vPropertyConfig.FType, vList);
-        end;
-        FProperties.Add(vPropertyConfig.FPropertyName, vPropertyConfig);
+      if Assigned(vPropertyConfig.FType) then begin
+        FPropertiesByType.Add(vPropertyConfig.FType, vList);
       end;
     end;
   end;
 end;
 
 
-function TBaseConfig<T>.Omit<Typ>(AProperty: TPropertySelector<T, Typ>): TBaseConfig<T>;
+procedure TObjectConfig<T>.InitType(AType: TRttiType);
+var
+  //vField: TRttiField;
+  vConfig: TPropertyConfig;
+  vList: TList<TPropertyConfig>;
+  vValue: TValue;
+  i: Integer;
+begin
+  if not FInitializedTypes.Contains(AType) then begin
+    FInitializedTypes.Add(AType);
+
+    vList := FPropertiesByType[AType];
+    for i := 0 to vList.Count - 1 do begin
+      vConfig := vList[i];
+      vValue := GenerateIndexValue(vConfig.FType, i);
+
+      if not vValue.IsEmpty then begin
+        // Write value to object
+        vConfig.FFieldType.SetValue(pointer(FObject), vValue);
+      end;
+      // Now get value we check against
+      vConfig.FPropertyIdentifier := vConfig.FFieldType.GetValue(pointer(FObject));
+    end;
+  end;
+end;
+
+function TObjectConfig<T>.Omit<Typ>(AProperty: TPropertySelector<T, Typ>): TObjectConfig<T>;
 var
   vConfig: TPropertyConfig;
 begin
@@ -585,7 +617,7 @@ begin
   end;
 end;
 
-function TBaseConfig<T>.Omit<Typ>(AProperty: String): TBaseConfig<T>;
+function TObjectConfig<T>.Omit<Typ>(AProperty: String): TObjectConfig<T>;
 var
   vConfig: TPropertyConfig;
 begin
@@ -593,17 +625,20 @@ begin
 
   if FProperties.TryGetValue(AProperty.ToUpper, vConfig) then begin
     vConfig.FProcessProperty := TProcessProperty.Omit;
+  end
+  else begin
+    raise Exception.Create('Property ' + AProperty + ' not found in class ' + FType.QualifiedName);
   end;
 end;
 
-function TBaseConfig<T>.OmitAutoProperties: TBaseConfig<T>;
+function TObjectConfig<T>.OmitAutoProperties: TObjectConfig<T>;
 var
   vConfig: TPropertyConfig;
 begin
   Result := Self;
 
-  if FPreviousConfig is TBaseConfig<T> then begin
-    TBaseConfig<T>(FPreviousConfig).OmitAutoProperties;
+  if FPreviousGenerator is TObjectConfig<T> then begin
+    TObjectConfig<T>(FPreviousGenerator).OmitAutoProperties;
   end
   else begin
     for vConfig in FProperties.Values do begin
@@ -614,7 +649,7 @@ begin
   end;
 end;
 
-function TBaseConfig<T>.Without<Typ>(AProperty: TPropertySelector<T, Typ>): TBaseConfig<T>;
+function TObjectConfig<T>.Without<Typ>(AProperty: TPropertySelector<T, Typ>): TObjectConfig<T>;
 var
   vConfig: TPropertyConfig;
 begin
@@ -626,7 +661,7 @@ begin
   end;
 end;
 
-function TBaseConfig<T>.Without<Typ>(AProperty: String): TBaseConfig<T>;
+function TObjectConfig<T>.Without<Typ>(AProperty: String): TObjectConfig<T>;
 var
   vConfig: TPropertyConfig;
 begin
@@ -637,7 +672,7 @@ begin
   end;
 end;
 
-function TBaseConfig<T>.GetPropertyFromSelector<Typ>(AProperty: TPropertySelector<T, Typ>): TPropertyConfig;
+function TObjectConfig<T>.GetPropertyFromSelector<Typ>(AProperty: TPropertySelector<T, Typ>): TPropertyConfig;
 var
   vActualValue: Typ;
   vValue: TValue;
@@ -652,6 +687,8 @@ begin
   if not Assigned(vType) then begin
     raise Exception.Create('Autofixture is unable to get RTTI type information for this type');
   end;
+
+  InitType(vType);
 
   if not FPropertiesByType.ContainsKey(vType) then begin
     raise Exception.Create('The class ' + Self.FType.Name + ' doesn''t contain any properties with type ' + vType.Name);
@@ -684,7 +721,7 @@ begin
   end;
 end;
 
-function TBaseConfig<T>.WithValue<Typ>(AProperty: TPropertySelector<T, Typ>; AValue: Typ): TBaseConfig<T>;
+function TObjectConfig<T>.WithValue<Typ>(AProperty: TPropertySelector<T, Typ>; AValue: Typ): TObjectConfig<T>;
 var
   vConfig: TPropertyConfig;
 begin
@@ -697,7 +734,7 @@ begin
   end;
 end;
 
-function TBaseConfig<T>.WithValue<Typ>(AProperty: String; AValue: Typ): TBaseConfig<T>;
+function TObjectConfig<T>.WithValue<Typ>(AProperty: String; AValue: Typ): TObjectConfig<T>;
 var
   vConfig: TPropertyConfig;
 begin
@@ -712,14 +749,107 @@ begin
         raise Exception.Create('Autofixture is unable to get RTTI type information for this type');
       end;
     end;
+  end
+  else begin
+    raise Exception.Create('Property named ' + AProperty + ' not found inside class ' + FType.Name);
   end;
 end;
 
-{ TPropertyConfig }
+{ TCollectionItemGenerator }
 
-constructor TPropertyConfig.Create;
+procedure TCollectionItemGenerator.CallConstructor(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer);
+begin
+  // Constructor not called for collectionItems
+end;
+
+constructor TCollectionItemGenerator.Create(AType: TRttiType; APreviousConfig: IObjectGenerator);
+begin
+  inherited Create(AType, APreviousConfig);
+
+  // Ignore Index and Collection properties
+  if FProperties.ContainsKey('INDEX') then begin
+    FProperties['INDEX'].FProcessProperty := TProcessProperty.Omit;
+  end;
+
+  if FProperties.ContainsKey('COLLECTION') then begin
+    FProperties['COLLECTION'].FProcessProperty := TProcessProperty.Omit;
+  end;
+end;
+
+destructor TCollectionItemGenerator.Destroy;
 begin
 
+  inherited;
+end;
+
+function TCollectionItemGenerator.getValue(APropertyName: String; AType: TRttiType; AReferenceDepth: integer = -1): TValue;
+begin
+  if (aPropertyName.ToUpper = 'INDEX') or (aPropertyName.ToUpper = 'COLLECTION') then begin
+    Result := TValue.Empty;
+  end
+  else begin
+    Result := inherited getValue(APropertyName, AType, AReferenceDepth);
+  end;
+end;
+
+{ TBaseConfig }
+
+constructor TBaseConfig.Create(AType: TRttiType; APreviousConfig: IObjectGenerator);
+begin
+  FType := AType;
+  FPreviousGenerator := APreviousConfig;
+  FProperties := TDictionary<String, TPropertyConfig>.Create;
+  FPropertiesByType := TDictionary<TRttiType, TList<TPropertyConfig>>.Create;
+  FInitializedTypes := TList<TRttiType>.Create;
+
+  InitProperties;
+end;
+
+destructor TBaseConfig.Destroy;
+begin
+  FreeAndNil(FProperties);
+  FreeAndNil(FPropertiesByType);
+
+  inherited;
+end;
+
+function TBaseConfig.getObject(AType: TRttiType; AReferenceDepth: Integer): TObject;
+var
+  vConfig: TPropertyConfig;
+  vValue: TValue;
+begin
+  Result := FType.AsInstance.MetaclassType.Create;
+
+  CallConstructor(AType, Result, AReferenceDepth);
+
+  // Now loop through properties
+  for vConfig in Self.FProperties.Values do begin
+    vValue := getValue(vConfig.FPropertyName, vConfig.FType, AReferenceDepth - 1);
+
+    if not vValue.IsEmpty then begin
+      vConfig.FFieldType.SetValue(Pointer(Result), vValue);
+    end
+  end;
+end;
+
+function TBaseConfig.getValue(APropertyName: String; AType: TRttiType; AReferenceDepth: integer = -1): TValue;
+var
+  vConfig: TPropertyConfig;
+begin
+  Result := TValue.Empty;
+
+  if AReferenceDepth > -1 then begin
+    if FProperties.TryGetValue(aPropertyName.ToUpper, vConfig) then begin
+      case vConfig.FProcessProperty of
+        TProcessProperty.ValueSet: Result := vConfig.FConfiguredPropertyValue;
+        TProcessProperty.Uninitialized: Result := FPreviousGenerator.getValue(aPropertyName, aType, AReferenceDepth);
+      end;
+    end
+    else begin
+      // property unknown, try previous config
+      Result := FPreviousGenerator.getValue(APropertyName, AType, AReferenceDepth);
+    end;
+  end;
 end;
 
 end.

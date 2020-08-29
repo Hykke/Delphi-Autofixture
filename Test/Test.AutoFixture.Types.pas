@@ -24,6 +24,8 @@ end;
 TTestAbstractClass = class(TInterfacedObject, ITestInterfaceType)
 public
   FProperty: String;
+
+  constructor Create; virtual;
 end;
 
 TTestSubClass = class(TTestAbstractClass, ITestInterfaceType)
@@ -46,5 +48,12 @@ public
 end;
 
 implementation
+
+{ TTestAbstractClass }
+
+constructor TTestAbstractClass.Create;
+begin
+  Self.FProperty := 'TEST';
+end;
 
 end.

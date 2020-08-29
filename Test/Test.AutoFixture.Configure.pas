@@ -199,8 +199,8 @@ var
   vRec: TRecord;
 begin
   // Arrange
-  vRec.FString := UUT.GetValue<string>;
-  vRec.FInt := UUT.GetValue<integer>;
+  vRec.FString := UUT.New<string>;
+  vRec.FInt := UUT.New<integer>;
 
   UUT.Configure<TTestSubClass>.WithValue<TRecord>(
     function (ATestSubClass: TTestSubClass): TRecord
@@ -409,5 +409,8 @@ begin
   // Assert
   Assert.AreEqual(AValue, vTest.FExtended, 'Configure Extended');
 end;
+
+initialization
+  TDUnitX.RegisterTestFixture(TAutofixtureConfigureTest);
 
 end.

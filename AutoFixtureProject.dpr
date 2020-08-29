@@ -1,5 +1,5 @@
 program AutoFixtureProject;
-
+{$M+}
 {$IFNDEF TESTINSIGHT}
 {$APPTYPE CONSOLE}
 {$ENDIF}{$STRONGLINKTYPES ON}
@@ -25,7 +25,9 @@ uses
   Test.AutoFixture.Types in 'Test\Test.AutoFixture.Types.pas',
   Test.AutoFixture.Configure in 'Test\Test.AutoFixture.Configure.pas',
   Test.AutoFixture.Build in 'Test\Test.AutoFixture.Build.pas',
-  Test.Autofixture.exceptions in 'Test\Test.Autofixture.exceptions.pas';
+  Test.Autofixture.exceptions in 'Test\Test.Autofixture.exceptions.pas',
+  Test.Autofixture.Setup in 'Test\Test.Autofixture.Setup.pas',
+  AutoFixtureLibrary in 'AutoFixtureLibrary.pas';
 
 var
   runner : ITestRunner;

@@ -69,7 +69,6 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <DCC_Inlining>off</DCC_Inlining>
-        <DCC_DebugDCUs>false</DCC_DebugDCUs>
         <DCC_MapFile>3</DCC_MapFile>
         <DCC_LegacyIFEND>true</DCC_LegacyIFEND>
         <DCC_OutputDependencies>true</DCC_OutputDependencies>
@@ -148,7 +147,7 @@
         <DCC_XML_WHITESPACE_NOT_ALLOWED>error</DCC_XML_WHITESPACE_NOT_ALLOWED>
         <DCC_IMMUTABLE_STRINGS>true</DCC_IMMUTABLE_STRINGS>
         <DCC_EXPLICIT_STRING_CAST_LOSS>error</DCC_EXPLICIT_STRING_CAST_LOSS>
-        <DCC_UNSAFE_CAST>true</DCC_UNSAFE_CAST>
+        <DCC_UNSAFE_CAST>error</DCC_UNSAFE_CAST>
         <DCC_UNSAFE_TYPE>error</DCC_UNSAFE_TYPE>
         <DCC_EXPLICIT_STRING_CAST>true</DCC_EXPLICIT_STRING_CAST>
         <VerInfo_Locale>1033</VerInfo_Locale>
@@ -180,6 +179,8 @@
         <DCCReference Include="Test\Test.AutoFixture.Configure.pas"/>
         <DCCReference Include="Test\Test.AutoFixture.Build.pas"/>
         <DCCReference Include="Test\Test.Autofixture.exceptions.pas"/>
+        <DCCReference Include="Test\Test.Autofixture.Setup.pas"/>
+        <DCCReference Include="AutoFixtureLibrary.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

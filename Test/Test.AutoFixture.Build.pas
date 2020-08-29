@@ -299,4 +299,7 @@ begin
   Assert.AreEqual(AValue, vTest.FExtended, 'Build Extended');
 end;
 
+initialization
+  TDUnitX.RegisterTestFixture(TAutofixtureBuildTest);
+
 end.

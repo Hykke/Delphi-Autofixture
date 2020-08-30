@@ -328,7 +328,7 @@ begin
     for vField in AType.GetFields do begin
       if vField.Name <> 'FRefCount' then begin
         // Try to set value
-        vValue := getValue(vField.Name, vField.FieldType);
+        vValue := getValue(vField.Name, vField.FieldType, AReferenceDepth - 1);
 
         if not vValue.IsEmpty then begin
           vField.SetValue(Pointer(AObject), vValue);

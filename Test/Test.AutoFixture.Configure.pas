@@ -84,6 +84,9 @@ public
 
     [Test]
     procedure TestRecord;
+
+    [Test]
+    procedure TestExecute;
 end;
 
 implementation
@@ -252,6 +255,24 @@ begin
 
   // Assert
   Assert.AreEqual(TDayEnum.friday, vTest.FDay, 'Configure Enum');
+end;
+
+procedure TAutofixtureConfigureTest.TestExecute;
+var vValue: TPerson;
+  vList: TListWithSelection<TPerson>;
+begin
+  // Arrange
+  vValue := UUT.New<TPerson>;
+  // Act
+  vList := UUT.Build<TListWithSelection<TPerson>>
+              .Exec(procedure (AList: TListWithSelection<TPerson>) begin
+                      AList.FList.Insert(2, vValue);
+                      AList.FSelectedItem := vValue;
+                    end
+              ).New;
+  // Assert
+  Assert.IsTrue(vList.FList.Contains(vValue), 'Value in list');
+  Assert.IsTrue(vList.FSelectedItem = vValue, 'Value is selectedItem');
 end;
 
 procedure TAutofixtureConfigureTest.TestConfigure3Objects(AValue: String);

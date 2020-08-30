@@ -60,6 +60,7 @@ protected
 
   procedure InitProperties;
   procedure CallConstructor(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer = -1); Virtual; Abstract;
+  procedure ObjectConstructed(AObject: TObject); Virtual; Abstract;
 public
   constructor Create(AType: TRttiType; APreviousConfig: IObjectGenerator);
   destructor Destroy; override;
@@ -81,6 +82,7 @@ protected
   procedure InitType(AType: TRttiType);
   procedure CallConstructor(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer = -1); override;
   function CallMethod(AOnObject: TObject; vMethod: TRttiMethod; AReferenceDepth: Integer = -1): TValue;
+  procedure ObjectConstructed(AObject: TObject); override;
 public
   constructor Create(AAutofixtueSetup: TAutoFixtureSetup; APreviousConfig: IObjectGenerator);
   destructor Destroy; override;
@@ -89,7 +91,7 @@ public
   function OmitAutoProperties: TObjectConfig<T>;
   function WithValue<Typ>(AProperty: String; AValue: Typ): TObjectConfig<T>; overload;
   function WithValue<Typ>(AProperty: TPropertySelector<T, Typ>; AValue: Typ): TObjectConfig<T>; overload;
-  function Without<Typ>(AProperty: String): TObjectConfig<T>; overload;
+  function Without(AProperty: String): TObjectConfig<T>; overload;
   function Without<Typ>(AProperty: TPropertySelector<T, Typ>): TObjectConfig<T>; overload;
   function Omit<Typ>(AProperty: String): TObjectConfig<T>; overload;
   function Omit<Typ>(AProperty: TPropertySelector<T, Typ>): TObjectConfig<T>; overload;
@@ -104,6 +106,7 @@ end;
 TCollectionItemGenerator = class(TBaseConfig)
 protected
   procedure CallConstructor(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer = -1); override;
+  procedure ObjectConstructed(AObject: TObject); override;
 public
   constructor Create(AType: TRttiType; APreviousConfig: IObjectGenerator); virtual;
   destructor Destroy; override;
@@ -218,7 +221,12 @@ begin
       Result := TValue.FromOrdinal(aType.Handle, aType.AsOrdinal.MinValue + Random(aType.AsOrdinal.MaxValue + 1 - aType.AsOrdinal.MinValue));
     end;
     tkFloat: Begin
-      Result := TValue.From(0.1 + Random(300));
+      if AType.Name='TDateTime' then begin
+        Result := TValue.From(Now - Random(300))
+      end
+      else begin
+        Result := TValue.From(0.1 + Random(300));
+      end;
     End;
     tkVariant: Begin
       i := Random(100); // Assign variants as integer, string or date
@@ -604,6 +612,15 @@ begin
   end;
 end;
 
+procedure TObjectConfig<T>.ObjectConstructed(AObject: TObject);
+var
+  vModificator: TObjectModifyProcedure<T>;
+begin
+  for vModificator in FExecList do begin
+    vModificator(AObject);
+  end;
+end;
+
 function TObjectConfig<T>.Omit<Typ>(AProperty: TPropertySelector<T, Typ>): TObjectConfig<T>;
 var
   vConfig: TPropertyConfig;
@@ -661,7 +678,7 @@ begin
   end;
 end;
 
-function TObjectConfig<T>.Without<Typ>(AProperty: String): TObjectConfig<T>;
+function TObjectConfig<T>.Without(AProperty: String): TObjectConfig<T>;
 var
   vConfig: TPropertyConfig;
 begin
@@ -792,6 +809,11 @@ begin
   end;
 end;
 
+procedure TCollectionItemGenerator.ObjectConstructed(AObject: TObject);
+begin
+  // Do nothing
+end;
+
 { TBaseConfig }
 
 constructor TBaseConfig.Create(AType: TRttiType; APreviousConfig: IObjectGenerator);
@@ -830,6 +852,8 @@ begin
       vConfig.FFieldType.SetValue(Pointer(Result), vValue);
     end
   end;
+
+  ObjectConstructed(Result);
 end;
 
 function TBaseConfig.getValue(APropertyName: String; AType: TRttiType; AReferenceDepth: integer = -1): TValue;

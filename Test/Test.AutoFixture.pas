@@ -57,6 +57,9 @@ public
 
     [Test]
     procedure AddToCollection;
+
+    [Test]
+    procedure OmitSpouse;
 end;
 
 
@@ -114,6 +117,17 @@ begin
   UUT.AddManyTo(vList);
   // Assert
   Assert.AreEqual(UUT.Setup.CollectionSize * 2, vList.Count, 'TList Size');
+end;
+
+procedure TAutofixtureTest.OmitSpouse;
+var
+  vPerson: TPerson;
+begin
+  // Arrange
+  // Act
+  vPerson := UUT.Build<TPerson>.Without('FSpouse').New;
+  // Assert
+  Assert.IsNull(vPerson.FSpouse, 'Spouse');
 end;
 
 procedure TAutofixtureTest.Setup;

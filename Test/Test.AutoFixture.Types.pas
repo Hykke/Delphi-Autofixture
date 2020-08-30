@@ -47,6 +47,19 @@ public
   FRecord: TRecord;
 end;
 
+TPerson = class
+public
+//  FBirthDay: TDateTime;
+//  FName: String;
+  FSpouse: TPerson;
+end;
+
+TListWithSelection<T> = class
+public
+  FList: TList<T>;
+  FSelectedItem: T;
+end;
+
 implementation
 
 { TTestAbstractClass }

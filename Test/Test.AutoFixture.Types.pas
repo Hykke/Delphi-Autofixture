@@ -3,7 +3,9 @@ unit Test.AutoFixture.Types;
 interface
 
 uses
-  Generics.Collections;
+  RTTI,
+  Generics.Collections,
+  AutofixtureGenerator;
 
 type
 
@@ -49,8 +51,8 @@ end;
 
 TPerson = class
 public
-//  FBirthDay: TDateTime;
-//  FName: String;
+  FBirthDay: TDateTime;
+  FName: String;
   FSpouse: TPerson;
 end;
 
@@ -60,13 +62,31 @@ public
   FSelectedItem: T;
 end;
 
+TTestCustomization = class(TInterfacedObject, IValueGenerator)
+  function getValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: integer = -1): TValue;
+end;
+
 implementation
 
+uses
+  SysUtils;
 { TTestAbstractClass }
 
 constructor TTestAbstractClass.Create;
 begin
   Self.FProperty := 'TEST';
+end;
+
+{ TTestCustomization }
+
+function TTestCustomization.getValue(APropertyName: String; aType: TRttiType; AReferenceDepth: integer): TValue;
+begin
+  Result := TValue.Empty;
+  if Uppercase(APropertyName) = 'ID' then begin
+    if AType.TypeKind = TTypeKind.tkInteger then begin
+      Result := TValue.From(0);
+    end;
+  end;
 end;
 
 end.

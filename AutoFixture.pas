@@ -3,6 +3,7 @@ unit AutoFixture;
 interface
 
 uses
+  SysUtils,
   RTTI,
   Generics.Collections,
   AutoFixtureSetup,
@@ -29,6 +30,10 @@ IAutoFixture = interface(IInterface)
   Function Fixture: TAutoFixture;
 end;
 
+ICustomization = interface
+  procedure Customize(AAutoFixture: TAutoFixture);
+end;
+
 TAutoFixture = class(TInterfacedObject, IAutoFixture, IValueGenerator, IObjectGenerator)
 private
   FGenerators: TList<IValueGenerator>;
@@ -38,18 +43,17 @@ private
   FBindtypeDict: TDictionary<TRttiType, TTypeList>;
   FConfigurationDict: TDictionary<TRttiType, IObjectGenerator>;
 
+  class var FGlobalCustomization: ICustomization;
+
   procedure setObjectProperties(AType: TRttiType; AObject: TObject; AReferenceDepth: Integer);
   procedure HandleCollection(ACollectionItemType: TRttiType);
 
-  // Deprecated methods!
-//  function NewInterfaceList<T: IInterface>: TList<T>; overload;
-//  function NewInterfaceList<T: IInterface>(AReferenceDepth: Integer): TList<T>; overload;
-//  function NewObject<T: Class>: T; overload;
-//  function NewInterface<T: IInterface>: T; overload;
-//  function NewInterface<T: IInterface>(AReferenceDepth: Integer): T; overload;
-
 public
-  constructor Create;
+  constructor Create; overload;
+  constructor Create(ACustomization: ICustomization); overload;
+  constructor Create(ADefaultGenerator: IValueGenerator); overload;
+  constructor Create(ADefaultGenerator, AIdGenerator: IValueGenerator); overload;
+
   destructor Destroy; override;
   function New<T: Class>(AReferenceDepth: Integer; APropertyName: String = ''): T; overload;
   function New<T>(APropertyName: String = ''): T; overload;
@@ -75,6 +79,13 @@ public
   function Configure<T: Class>: TObjectConfig<T>;
   function Build<T: Class>: TObjectConfig<T>;
 
+  procedure Customize<T: Class>(AConfigProc: TProc<TObjectConfig<T>>); overload;
+  procedure Customize(AValueGenerator: IValueGenerator); overload;
+  procedure Customize(ACustomization: ICustomization); overload;
+
+  class property GlobalCustomization: ICustomization read FGlobalCustomization write FGlobalCustomization;
+  class procedure AddGlobalCustomization(ACustomization: ICustomization);
+
   function GetValue(aPropertyName: String; aType: TRttiType): TValue; overload;
   function GetValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: Integer): TValue; overload;
   //function getObject(AType: TRttiType): TObject; overload;
@@ -85,6 +96,7 @@ public
   function ResolveType(ARttiType: TRttiType): TRttiType;
   function Fixture: TAutofixture;
 
+  property Generators: TList<IValueGenerator> read FGenerators;
   property Setup: TAutoFixtureSetup read FSetup;
 end;
 
@@ -98,15 +110,33 @@ public
   function getObject(AType: TRttiType; AReferenceDepth: Integer): TObject;
 end;
 
+TCompositeCustomization = class(TInterfacedObject, ICustomization)
+protected
+  FCustomization: ICustomization;
+  FOtherCustomization: ICustomization;
+public
+  procedure Customize(AFixture: TAutoFixture);
+  constructor Create(ACustomization, AOtherCustumization: ICustomization);
+end;
 
 implementation
 
-uses SysUtils,
+uses
   AutoFixture.IdGenerator,
   Spring,
   AutoFixtureLibrary;
 
 { TAutoFixture }
+class procedure TAutoFixture.AddGlobalCustomization(ACustomization: ICustomization);
+begin
+  if Assigned(FGlobalCustomization) then begin
+    FGlobalCustomization := TCompositeCustomization.Create(FGlobalCustomization, ACustomization);
+  end
+  else begin
+    FGlobalCustomization := ACustomization;
+  end;
+end;
+
 procedure TAutoFixture.AddManyTo<T>(var AList: T; ANumberOfElements: Integer=0);
 var
   i: Integer;
@@ -219,16 +249,65 @@ begin
   Result := TObjectConfig<T>(vGenerator);
 end;
 
+constructor TAutoFixture.Create(ACustomization: ICustomization);
+begin
+  Create(nil, nil);
+  ACustomization.Customize(Self);
+end;
+
 constructor TAutoFixture.Create;
 begin
+  Create(nil, nil);
+end;
+
+constructor TAutoFixture.Create(ADefaultGenerator: IValueGenerator);
+begin
+  Create(ADefaultGenerator, nil);
+end;
+
+constructor TAutoFixture.Create(ADefaultGenerator, AIdGenerator: IValueGenerator);
+begin
   FGenerators := TList<IValueGenerator>.Create;
-  FGenerators.Add(TRandomGenerator.Create);
-  FGenerators.Add(TIdGenerator.Create);
+
+  if Assigned(ADefaultGenerator) then begin
+    FGenerators.Add(ADefaultGenerator);
+  end
+  else begin
+    FGenerators.Add(TRandomGenerator.Create);
+  end;
+
+  if Assigned(AIdGenerator) then begin
+    FGenerators.Add(AIdGenerator);
+  end
+  else begin
+    FGenerators.Add(TIdGenerator.Create);
+  end;
+
   Fsetup := TAutoFixtureSetup.Create;
   FDMocks := TDictionary<System.Pointer, IEncapsulatedRecordType>.Create;
   FSMocks := TDictionary<System.Pointer, IEncapsulatedRecordType>.Create;
   FBindtypeDict := TDictionary<TRttiType, TTypeList>.Create;
   FConfigurationDict := TDictionary<TRttiType, IObjectGenerator>.Create;
+
+  if Assigned(FGlobalCustomization) then begin
+    FGlobalCustomization.Customize(Self);
+  end;
+end;
+
+procedure TAutoFixture.Customize(AValueGenerator: IValueGenerator);
+begin
+  FGenerators.Add(AValueGenerator);
+end;
+
+procedure TAutoFixture.Customize(ACustomization: ICustomization);
+begin
+  ACustomization.Customize(Self);
+end;
+
+procedure TAutoFixture.Customize<T>(AConfigProc: TProc<TObjectConfig<T>>);
+begin
+  // This function simply encapsulates Configure (Better just call configure directly, only included to be more similar to the .Net version)
+  AConfigProc(Configure<T>);
 end;
 
 procedure TAutoFixture.Inject<T>(aDelegate: TInjectNameDelegate<T>);
@@ -308,20 +387,6 @@ begin
         end;
       end;
     end;
-//    // Loop through and set properties using the generator found
-//    for vProperty in AType.GetProperties do
-//    begin
-//      if vProperty.IsWritable then
-//      begin
-//        // Try to set property value
-//        vValue := vGenerator.getValue(vProperty.Name, vProperty.PropertyType, AReferenceDepth);
-//
-//        if not vValue.IsEmpty then
-//        begin
-//          vProperty.SetValue(Pointer(AObject), vValue);
-//        end;
-//      end;
-//    end;
   end
   else begin
     // Loop through and set fields
@@ -344,19 +409,20 @@ begin
       end;
     end;
 
+
     // Loop through and set properties
-    for vProperty in AType.GetProperties do
-    begin
-      if vProperty.IsWritable then
-      begin
-        // Try to set property value
-        vValue := getValue(vProperty.Name, vProperty.PropertyType, AReferenceDepth);
-        if not vValue.IsEmpty then
-        begin
-          vProperty.SetValue(Pointer(AObject), vValue);
-        end;
-      end;
-    end;
+//    for vProperty in AType.GetProperties do
+//    begin
+//      if vProperty.IsWritable then
+//      begin
+//        // Try to set property value
+//        vValue := getValue(vProperty.Name, vProperty.PropertyType, AReferenceDepth);
+//        if not vValue.IsEmpty then
+//        begin
+//          vProperty.SetValue(Pointer(AObject), vValue);
+//        end;
+//      end;
+//    end;
   end;
 end;
 
@@ -440,26 +506,6 @@ begin
     end;
 
     if not vCollectionDetected then begin
-      // Loop through and set fields
-
-//      for vField in AType.GetFields do begin
-//        if vField.Name <> 'FRefCount' then begin
-//          // Try to set value
-//          vValue := getValue(vField.Name, vField.FieldType, AReferenceDepth -1);
-//
-//          if not vValue.IsEmpty then begin
-//            vField.SetValue(Pointer(Result), vValue);
-//          end
-//          else begin
-//            if Assigned(vField.FieldType) and (vField.FieldType.TypeKind = tkClass) then begin
-//              if AReferenceDepth > 1 then begin
-//                vValue := TValue.From(getObject(vField.FieldType, AReferenceDepth - 1));
-//                vField.SetValue(Pointer(Result), vValue);
-//              end;
-//            end;
-//          end;
-//        end;
-//      end;
       setObjectProperties(AType, Result, AReferenceDepth);
     end;
   end;
@@ -557,47 +603,6 @@ begin
   end;
 end;
 
-//function TAutoFixture.NewInterface<T>: T;
-//begin
-//  Result := NewInterface<T>(Setup.ReferenceDepth);
-//end;
-
-//function TAutoFixture.NewInterface<T>(AReferenceDepth: Integer): T;
-//var ctx: TRttiContext;
-//  vType: TRttiType;
-//  vValue: TValue;
-//  vObj: TObject;
-//  vObjCast: TInterfacedObject;
-//  vIObj: IInterface;
-//  vClassName: String;
-//begin
-//  Result := nil;
-//  ctx := TRttiContext.Create;
-//  vValue := getValue('', ctx.getType(TypeInfo(T)));
-//
-//  if vValue.IsEmpty then begin
-//    vType := ctx.GetType(TypeInfo(T));
-//    vObj := getObject(vType, AReferenceDepth);
-//  end
-//  else begin
-//    vObj := vValue.AsObject;
-//  end;
-//
-//  vClassName := vObj.ClassName;
-//
-//  vObjCast := vObj as TInterfacedObject;
-//  vIObj := IInterface(vObjCast);
-//  Result := T(vIObj);
-//
-//  if (vObj is TInterfacedObject) and (vClassName<>'') then begin
-//    vObjCast := TInterfacedObject(vObj);
-//    vIObj := IInterface(vObjCast);
-//    Result := T(vIObj);
-//  end;
-//
-//  ctx.Free;
-//end;
-
 function TAutoFixture.NewList<T>(APropertyName: String): TList<T>;
 var
   i: Integer;
@@ -607,27 +612,6 @@ begin
     Result.Add(New<T>(APropertyName));
   end;
 end;
-
-
-//function TAutoFixture.NewInterfaceList<T>: TList<T>;
-//var
-//  i: Integer;
-//begin
-//  Result := TList<T>.Create;
-//  for i := 1 to Fsetup.CollectionSize do begin
-//    Result.Add(NewInterFace<T>())
-//  end;
-//end;
-
-//function TAutoFixture.NewInterfaceList<T>(AReferenceDepth: Integer): TList<T>;
-//var
-//  i: Integer;
-//begin
-//  Result := TList<T>.Create;
-//  for i := 1 to Fsetup.CollectionSize do begin
-//    Result.Add(NewInterFace<T>(AReferenceDepth))
-//  end;
-//end;
 
 function TAutoFixture.NewObjectList<T>(AOwnsObjects: Boolean): TObjectList<T>;
 var
@@ -649,34 +633,6 @@ begin
   end;
 end;
 
-//function TAutoFixture.NewRecord<T>: T;
-//begin
-//  Result := NewRecord<T>(FSetup.ReferenceDepth);
-//end;
-//
-//function TAutoFixture.NewRecord<T>(AReferenceDepth: Integer): T;
-//var ctx: TRttiContext;
-//  vType: TRttiType;
-//  vValue: TValue;
-//  vRec: T;
-//begin
-//  Result := nil;
-//  ctx := TRttiContext.Create;
-//  vValue := getValue('', ctx.getType(TypeInfo(T)));
-//
-//  if vValue.IsEmpty then begin
-//    vType := ctx.GetType(TypeInfo(T));
-//    vRec := getObject(vType, AReferenceDepth);
-//  end
-//  else begin
-//    vRec := vValue.AsType<T>;
-//  end;
-//
-//  Result := vRec;
-//
-//  ctx.Free;
-//end;
-
 function TAutoFixture.RegisterType<T, TBind>: TTypeList;
 var ctx: TRttiContext;
   vType, vBindType: TRttiType;
@@ -689,19 +645,6 @@ begin
   vBindType := ctx.getType(TypeInfo(TBind));
 
   Result := TTypeList.Create(vBindType);
-
-  if vBindType.TypeKind = tkClass then begin
-    vPropertyFound := False;
-    for vProperty in vBindType.GetProperties do begin
-      vPropertyFound := True;
-    end;
-
-    if not vPropertyFound then begin
-
-    end;
-  end;
-
-
 
   if FBindtypeDict.ContainsKey(vType) then begin
     FBindtypeDict[vType].Free;
@@ -841,6 +784,20 @@ begin
                                      end);
 
   FGenerators.Add(vGenerator);
+end;
+
+{ TCompositeCustomization }
+
+constructor TCompositeCustomization.Create(ACustomization, AOtherCustumization: ICustomization);
+begin
+  FCustomization := ACustomization;
+  FOtherCustomization := AOtherCustumization;
+end;
+
+procedure TCompositeCustomization.Customize(AFixture: TAutoFixture);
+begin
+  FCustomization.Customize(AFixture);
+  FOtherCustomization.Customize(AFixture);
 end;
 
 end.

@@ -27,7 +27,8 @@ uses
   Test.AutoFixture.Build in 'Test\Test.AutoFixture.Build.pas',
   Test.Autofixture.exceptions in 'Test\Test.Autofixture.exceptions.pas',
   Test.Autofixture.Setup in 'Test\Test.Autofixture.Setup.pas',
-  AutoFixtureLibrary in 'AutoFixtureLibrary.pas';
+  AutoFixtureLibrary in 'AutoFixtureLibrary.pas',
+  CustomizationExamples in 'Examples\CustomizationExamples.pas';
 
 var
   runner : ITestRunner;

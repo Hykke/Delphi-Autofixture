@@ -12,7 +12,7 @@ uses
 type
 
 // CLASSES CONTAINING TEST DATA (Not code classes)
-{$M+} // Ensure RTTI information is turned on
+// Ensure RTTI information is turned on
 TSteeringWheel = class
 protected
   FDirectionAngle: Double;
@@ -22,15 +22,18 @@ end;
 
 TControlPanel = class
 protected
+  FId: Integer;
   FIgnition: Boolean;
   FSteeringWheel: TSteeringWheel;
 public
   property IsIgnitionOn: Boolean read FIgnition write FIgnition;
+  property Id: Integer read FId;
   constructor Create(ASteeringWheel: TSteeringWheel);
 end;
 
 TWheel = Class
 protected
+  FId: Integer;
   FTyrePreassure: Integer;
 public
   property TyrePreassure: Integer read FTyrePreassure write FTyrePreassure;
@@ -38,6 +41,7 @@ End;
 
 TSeat = Class
 protected
+  FId: Integer;
   FHeat: Boolean;
 public
   property isHeatOn: Boolean read FHeat write FHeat;
@@ -45,10 +49,12 @@ End;
 
 TNumberPlate = Class
 protected
+  FId: Integer;
   FNumber: String;
 public
   property Number: String read FNumber;
   constructor Create(ANumber: String);
+  property Id: Integer read FId write FId;
 End;
 
 // INTERFACES
@@ -76,6 +82,7 @@ end;
 
 TCar = class
 private
+  FId: Integer;
   FControls: TControlPanel;
   FNumberPlate: TNumberPlate;
   FWheels: TObjectList<TWheel>;
@@ -86,6 +93,9 @@ public
   Procedure AddWheelInfo(AWheel: TWheel);
   Procedure AddSeatInfo(ASeat: TSeat);
   Function IsTyrePreassureOK: Boolean;
+  property Id: Integer read FId write FId;
+  property Controls: TControlPanel read FControls;
+  property NumberPlate: TNumberPlate read FNumberPlate;
 end;
 
 implementation

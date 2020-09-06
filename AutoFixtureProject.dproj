@@ -181,6 +181,7 @@
         <DCCReference Include="Test\Test.Autofixture.exceptions.pas"/>
         <DCCReference Include="Test\Test.Autofixture.Setup.pas"/>
         <DCCReference Include="AutoFixtureLibrary.pas"/>
+        <DCCReference Include="Examples\CustomizationExamples.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

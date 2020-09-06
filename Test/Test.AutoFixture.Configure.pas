@@ -87,12 +87,21 @@ public
 
     [Test]
     procedure TestExecute;
+
+    [Test]
+    procedure TestExecuteConfigured;
+
+    [Test]
+    [Testcase('Normal', 'Test string')]
+    [Testcase('Blank', '')]
+    procedure TestSimpleCustomize(AValue: String);
 end;
 
 implementation
 
 uses SysUtils,
-  Rtti;
+  Rtti,
+  AutofixtureGenerator;
 
 { TAutofixtureTest }
 
@@ -275,6 +284,25 @@ begin
   Assert.IsTrue(vList.FSelectedItem = vValue, 'Value is selectedItem');
 end;
 
+procedure TAutofixtureConfigureTest.TestExecuteConfigured;
+var vValue: TPerson;
+  vList: TListWithSelection<TPerson>;
+begin
+  // Arrange
+  vValue := UUT.New<TPerson>;
+  UUT.Configure<TListWithSelection<TPerson>>
+      .Exec(procedure (AList: TListWithSelection<TPerson>) begin
+              AList.FList.Insert(2, vValue);
+              AList.FSelectedItem := vValue;
+            end
+      );
+  // Act
+  vList := UUT.New<TListWithSelection<TPerson>>;
+  // Assert
+  Assert.IsTrue(vList.FList.Contains(vValue), 'Value in list');
+  Assert.IsTrue(vList.FSelectedItem = vValue, 'Value is selectedItem');
+end;
+
 procedure TAutofixtureConfigureTest.TestConfigure3Objects(AValue: String);
 var
   vTest1, vTest2, vTest3 : TTestSubClass;
@@ -296,6 +324,33 @@ begin
   Assert.AreEqual(AValue, vTest1.FSubProperty, 'Configure 3 objects 1');
   Assert.AreEqual(AValue, vTest2.FSubProperty, 'Configure 3 objects 2');
   Assert.AreEqual(AValue, vTest3.FSubProperty, 'Configure 3 objects 3');
+end;
+
+procedure TAutofixtureConfigureTest.TestSimpleCustomize(AValue: String);
+var
+  vTest1, vTest2, vTest3 : TTestSubClass;
+begin
+  // Arrange
+  UUT.Customize<TTestSubClass>(
+    procedure (AConfig: TObjectConfig<TTestSubClass>) begin
+      AConfig.WithValue<String>(
+        function (ATestSubClass: TTestSubClass): String
+        begin
+          Result := ATestSubClass.FSubProperty;
+        end,
+      AValue);
+    end
+  );
+
+  // Act
+  vTest1 := UUT.New<TTestSubClass>;
+  vTest2 := UUT.New<TTestSubClass>;
+  vTest3 := UUT.New<TTestSubClass>;
+
+  // Assert
+  Assert.AreEqual(AValue, vTest1.FSubProperty, 'Customize 3 objects 1');
+  Assert.AreEqual(AValue, vTest2.FSubProperty, 'Customize 3 objects 2');
+  Assert.AreEqual(AValue, vTest3.FSubProperty, 'Customize 3 objects 3');
 end;
 
 procedure TAutofixtureConfigureTest.TestConfigureBoolean1(AValue: Boolean);

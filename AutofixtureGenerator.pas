@@ -11,7 +11,7 @@ type
 {$SCOPEDENUMS ON}
 
 IValueGenerator = interface
-  function getValue(aPropertyName: String; aType: TRttiType; AReferenceDepth: integer = -1): TValue;
+  function getValue(APropertyName: String; AType: TRttiType; AReferenceDepth: integer = -1): TValue;
 end;
 
 IObjectGenerator = interface(IValueGenerator)
